@@ -30,6 +30,7 @@ let selection: Selection = new Set();
 let cleared: ClearSet = new Set();
 let lastResult: ConversionResult | null = null;
 let activeSection = "channels";
+let renderedSection: string | null = null;
 
 // --- file intake -----------------------------------------------------------
 
@@ -69,6 +70,7 @@ async function intake(file: File): Promise<void> {
     selection = defaultSelection(loaded.inventory.root);
     cleared = new Set();
     activeSection = loaded.inventory.root[0]?.id ?? "channels";
+    renderedSection = null;
     renderWorkspace();
     recompute();
   } catch (err) {
@@ -234,6 +236,13 @@ function renderSection(): void {
     host.innerHTML = "";
     return;
   }
+  // Preserve scroll position of the inner list across a re-render so toggling a
+  // row doesn't jump the list back to the top — but only when we're re-rendering
+  // the same section, not switching to a new one.
+  const sameSection = renderedSection === group.id;
+  const prevScroll = sameSection
+    ? (host.querySelector<HTMLElement>(".matrix-body, .fx-body, .chip-body, .list-body")?.scrollTop ?? 0)
+    : 0;
   host.innerHTML = "";
   const card = document.createElement("div");
   card.className = "card";
@@ -257,6 +266,13 @@ function renderSection(): void {
     card.appendChild(listBody(group));
   }
   host.appendChild(card);
+  if (prevScroll) {
+    const scroller = host.querySelector<HTMLElement>(
+      ".matrix-body, .fx-body, .chip-body, .list-body",
+    );
+    if (scroller) scroller.scrollTop = prevScroll;
+  }
+  renderedSection = group.id;
 }
 
 function plainHeader(group: InventoryNode): HTMLElement {
