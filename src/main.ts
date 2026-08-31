@@ -1,4 +1,5 @@
 import "./theme.css";
+import logoUrl from "./assets/bvk-logo.png";
 import { convert, loadShowFile, type LoadedFile } from "./convert/convert";
 import {
   BLOCK_LABELS,
@@ -16,6 +17,13 @@ import type {
 const dropzone = must<HTMLDivElement>("#drop");
 const fileInput = must<HTMLInputElement>("#file");
 const workspace = must<HTMLDivElement>("#workspace");
+
+// Logo is bundled (inlined as a data URI at build time) so the built
+// dist/index.html is a single self-contained file.
+const brandLogo = document.querySelector<HTMLImageElement>("#brand-logo");
+if (brandLogo) brandLogo.src = logoUrl;
+const favicon = document.querySelector<HTMLLinkElement>("#favicon");
+if (favicon) favicon.href = logoUrl;
 
 let loaded: LoadedFile | null = null;
 let selection: Selection = new Set();

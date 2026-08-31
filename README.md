@@ -7,13 +7,30 @@ Everything runs client-side — a show file dropped into the page never leaves t
 browser. `npm run build` produces a single self-contained `dist/index.html` you
 can open offline or host anywhere static.
 
-## Use
+## Run it in a browser
+
+**Option A — dev server (for working on it):**
 
 ```bash
 npm install
-npm run dev        # http://localhost:5178
-npm run build      # -> dist/index.html (one file)
-npm test           # vitest
+npm run dev
+```
+
+Open the URL it prints (http://localhost:5178). Edits reload live.
+
+**Option B — build the standalone file (to use or share):**
+
+```bash
+npm install
+npm run build
+```
+
+This writes a single self-contained `dist/index.html` (no other files, ~460 kB).
+Double-click it, or open it in any browser — it works offline and over `file://`.
+Nothing is uploaded; the show file is parsed in the page.
+
+```bash
+npm test           # run the vitest suite
 ```
 
 Drop a file:
