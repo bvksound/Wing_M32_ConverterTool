@@ -47,6 +47,16 @@ export function m32BandToken(
     default:
       if (position === "first" && band.gain === 0) return "LShv";
       if (position === "last" && band.gain === 0) return "HShv";
+      // A deep, high bell that ends up in the top slot is functionally a
+      // top-end roll-off. The M32 only has 4 bands, so keeping it as a narrow
+      // PEQ leaves the octaves below it un-attenuated and the curve springs
+      // back up between bands — a high shelf tracks the WING roll-off better.
+      if (position === "last" && band.gain <= -10 && band.freq >= 4000) {
+        return "HShv";
+      }
+      if (position === "first" && band.gain <= -10 && band.freq <= 120) {
+        return "LShv";
+      }
       return "PEQ";
   }
 }

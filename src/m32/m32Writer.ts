@@ -345,8 +345,16 @@ function writeEqBands(
     const path = `${base}/eq/${i + 1}`;
     if (!doc.has(path)) return;
     const pos = i === 0 ? "first" : i === bands.length - 1 ? "last" : "mid";
+    const token = m32BandToken(band, pos);
+    if (token === "HShv" && band.type === "bell") {
+      report.push({
+        severity: "info",
+        scope,
+        message: `Top EQ band (${Math.round(band.freq)} Hz, ${band.gain} dB bell) written as a high shelf so the M32's 4 bands track the roll-off.`,
+      });
+    }
     doc.set(path, [
-      m32BandToken(band, pos),
+      token,
       encodeFreq(band.freq),
       signedFixed(band.gain, 2),
       band.q.toFixed(1),

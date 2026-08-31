@@ -84,6 +84,19 @@ describe("high-cut / low-cut filters", () => {
     expect(res.report.some((r) => /high-cut/i.test(r.message))).toBe(true);
   });
 
+  it("a deep high bell in the top slot becomes a high shelf on the M32", () => {
+    const j = JSON.parse(WING_CHN);
+    j.ch_data.eq.on = true;
+    j.ch_data.eq.hg = 0; // neutralise the designated high band
+    j.ch_data.eq["4g"] = -13; // deep cut...
+    j.ch_data.eq["4f"] = 11000; // ...up high
+    j.ch_data.eq["4q"] = 1.0;
+    const l = loadShowFile("BASS.chn", JSON.stringify(j));
+    const res = convert(l, selectAllDefault(l.inventory));
+    const band4 = res.text.split("\n").find((x) => x.startsWith("/ch/01/eq/4"))!;
+    expect(band4).toMatch(/^\/ch\/01\/eq\/4 HShv /);
+  });
+
   it("M32 EQ HCut band -> WING flt.hc", () => {
     const l = loadShowFile("M32R Backup.scn", M32);
     // ch 14 has "/ch/14/eq ON" with "/ch/14/eq/4 HCut 4k52 ..."
