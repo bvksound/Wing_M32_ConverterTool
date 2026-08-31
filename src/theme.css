@@ -153,14 +153,28 @@ input[type="checkbox"] { accent-color: var(--teal); width: 15px; height: 15px; c
 .matrix-body { max-height: 66vh; overflow: auto; }
 .mrow {
   display: grid;
-  grid-template-columns: 88px minmax(120px, 1fr) auto minmax(0, 46%);
-  align-items: center; gap: 10px;
-  padding: 5px 14px 5px 0; border-bottom: 1px solid var(--border);
+  grid-template-columns: 84px minmax(110px, 1fr) auto minmax(0, 44%) 26px;
+  align-items: center; gap: 9px;
+  padding: 5px 12px 5px 0; border-bottom: 1px solid var(--border);
   border-left: 3px solid var(--col, transparent);
 }
 .mrow:last-child { border-bottom: none; }
 .mrow.inactive { opacity: 0.5; }
 .mrow.dropped { opacity: 0.45; background: repeating-linear-gradient(45deg, transparent, transparent 6px, rgba(239,90,111,0.05) 6px, rgba(239,90,111,0.05) 12px); }
+.mrow.cleared { background: repeating-linear-gradient(45deg, transparent, transparent 7px, rgba(138,151,161,0.06) 7px, rgba(138,151,161,0.06) 14px); }
+.mrow.cleared .mrow-name .nm { text-decoration: line-through; color: var(--muted2); }
+.blank-badge {
+  font-family: var(--mono); font-size: 9px; color: var(--muted); border: 1px solid var(--border-lit);
+  padding: 1px 4px; border-radius: 4px; letter-spacing: 0.06em;
+}
+.clear-btn {
+  width: 24px; height: 24px; border-radius: 6px; cursor: pointer; font-size: 12px;
+  background: var(--panel); border: 1px solid var(--border); color: var(--muted2);
+  display: inline-flex; align-items: center; justify-content: center; padding: 0;
+}
+.clear-btn:hover:not(:disabled) { border-color: var(--red); color: var(--red); }
+.clear-btn.active { border-color: var(--teal); color: var(--teal); }
+.clear-btn:disabled { opacity: 0.25; cursor: default; }
 .mrow-id { display: flex; align-items: center; gap: 8px; padding-left: 11px; }
 .mrow-id .num { font-family: var(--mono); font-size: 12px; color: var(--muted); min-width: 20px; }
 .mrow-id .cbadge { display: none; }

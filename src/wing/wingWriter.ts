@@ -7,7 +7,7 @@ import type {
   ShowModel,
 } from "../model/showModel";
 import { neutralColourToWing } from "../model/colour";
-import type { ReportEntry, Selection } from "../convert/types";
+import type { ClearSet, ReportEntry, Selection } from "../convert/types";
 import wingSnapTemplate from "../templates/wing-default.snap?raw";
 import wingChnTemplate from "../templates/wing-default.chn?raw";
 import { WingDoc, isObj, numericKeys, type Json } from "./wingDoc";
@@ -17,6 +17,7 @@ const OFF_DB = -144;
 export function writeWing(
   model: ShowModel,
   selection: Selection,
+  cleared: ClearSet,
   report: ReportEntry[],
 ): string {
   if (model.kind === "channel-preset") {
@@ -28,6 +29,10 @@ export function writeWing(
   for (const ch of model.channels) {
     const b = `ae_data.ch.${ch.index}`;
     if (!isObj(doc.get(b))) break; // template only has 40
+    if (cleared.has(`channels.${ch.index}`)) {
+      clearWingStrip(doc, b, 16, "");
+      continue;
+    }
     if (on(`channels.${ch.index}.strip`)) writeStrip(doc, b, ch);
     if (on(`channels.${ch.index}.input`)) writeInput(doc, b, ch, model, report);
     if (on(`channels.${ch.index}.eq`) && ch.eq) writeEq(doc, `${b}.eq`, ch.eq);
@@ -40,6 +45,10 @@ export function writeWing(
   for (const bus of model.buses) {
     const b = `ae_data.bus.${bus.index}`;
     if (!isObj(doc.get(b))) break;
+    if (cleared.has(`buses.${bus.index}`)) {
+      clearWingStrip(doc, b, 8, "MX");
+      continue;
+    }
     if (on(`buses.${bus.index}.strip`)) writeBusStrip(doc, b, bus);
     if (on(`buses.${bus.index}.eq`) && bus.eq) writeEq(doc, `${b}.eq`, bus.eq);
     if (on(`buses.${bus.index}.comp`) && bus.comp) writeComp(doc, `${b}.dyn`, bus.comp);
@@ -49,6 +58,10 @@ export function writeWing(
   for (const mtx of model.matrices) {
     const b = `ae_data.mtx.${mtx.index}`;
     if (!isObj(doc.get(b))) break;
+    if (cleared.has(`matrices.${mtx.index}`)) {
+      clearWingStrip(doc, b, 0, "");
+      continue;
+    }
     if (on(`matrices.${mtx.index}.strip`)) writeBusStrip(doc, b, mtx);
     if (on(`matrices.${mtx.index}.eq`) && mtx.eq) writeEq(doc, `${b}.eq`, mtx.eq);
   }
@@ -96,6 +109,49 @@ function writeWingPreset(
     message: "Channel preset converted; load onto the target WING channel and check the input source.",
   });
   return doc.serialize();
+}
+
+/**
+ * Blank a strip on the WING: name/colour cleared, fader off, all processing
+ * bypassed, every send off, DCA/mute-group tags stripped. The input connection
+ * is left untouched.
+ */
+function clearWingStrip(
+  doc: WingDoc,
+  b: string,
+  sendCount: number,
+  sendPrefix: string,
+): void {
+  doc.set(`${b}.name`, "");
+  doc.set(`${b}.col`, 0);
+  doc.set(`${b}.mute`, false);
+  doc.set(`${b}.fdr`, OFF_DB);
+  doc.set(`${b}.pan`, 0);
+  doc.set(`${b}.flt.lc`, false);
+  doc.set(`${b}.flt.hc`, false);
+  doc.set(`${b}.eq.on`, false);
+  doc.set(`${b}.gate.on`, false);
+  doc.set(`${b}.dyn.on`, false);
+  doc.set(`${b}.peq.on`, false);
+  for (let i = 1; i <= sendCount; i++) {
+    const key = sendPrefix ? `${sendPrefix}${i}` : String(i);
+    const base = `${b}.send.${key}`;
+    if (!isObj(doc.get(base))) continue;
+    doc.set(`${base}.on`, false);
+    doc.set(`${base}.lvl`, OFF_DB);
+  }
+  if (isObj(doc.get(`${b}.send`))) {
+    for (const k of Object.keys(doc.get(`${b}.send`) as object)) {
+      doc.set(`${b}.send.${k}.on`, false);
+      doc.set(`${b}.send.${k}.lvl`, OFF_DB);
+    }
+  }
+  const existing = doc.getStr(`${b}.tags`) ?? "";
+  const kept = existing
+    .split(",")
+    .map((t) => t.trim())
+    .filter((t) => t && !/^#[DM]\d+$/.test(t));
+  doc.set(`${b}.tags`, kept.join(","));
 }
 
 function writeStrip(doc: WingDoc, b: string, ch: Channel): void {

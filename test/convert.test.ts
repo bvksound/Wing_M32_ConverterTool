@@ -64,6 +64,29 @@ describe("WING -> M32", () => {
   });
 });
 
+describe("clear / blank a strip", () => {
+  it("M32 -> WING: a cleared channel comes out blank regardless of selection", () => {
+    const l = loadShowFile("M32R Backup.scn", M32);
+    const sel = selectAllDefault(l.inventory);
+    const res = convert(l, sel, new Set(["channels.1"]));
+    const json = JSON.parse(res.text);
+    expect(json.ae_data.ch["1"].name).toBe("");
+    expect(json.ae_data.ch["1"].fdr).toBeLessThanOrEqual(-140);
+    expect(json.ae_data.ch["1"].eq.on).toBe(false);
+    // channel 2 still converted normally
+    expect(json.ae_data.ch["2"].name).toBe("Snare");
+    expect(res.report.some((r) => r.scope === "cleared")).toBe(true);
+  });
+
+  it("WING -> M32: a cleared channel is reset on the scene", () => {
+    const l = loadShowFile("BVBA Vandamme.snap", WING_SNAP);
+    const res = convert(l, selectAllDefault(l.inventory), new Set(["channels.1"]));
+    const line = res.text.split("\n").find((x) => x.startsWith("/ch/01/config"))!;
+    expect(line).toBe('/ch/01/config "" 1 OFF 1');
+    expect(res.text.split("\n").find((x) => x === "/ch/01/eq OFF")).toBeTruthy();
+  });
+});
+
 describe("M32 -> WING", () => {
   it("produces valid JSON with converted channel names", () => {
     const l = loadShowFile("M32R Backup.scn", M32);

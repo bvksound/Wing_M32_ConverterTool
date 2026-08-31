@@ -4,7 +4,13 @@ import { writeM32 } from "../m32/m32Writer";
 import { readWing } from "../wing/wingReader";
 import { writeWing } from "../wing/wingWriter";
 import { buildInventory } from "./inventory";
-import type { ConversionResult, Inventory, ReportEntry, Selection } from "./types";
+import type {
+  ClearSet,
+  ConversionResult,
+  Inventory,
+  ReportEntry,
+  Selection,
+} from "./types";
 
 export interface LoadedFile {
   filename: string;
@@ -44,16 +50,20 @@ export function detectPlatform(filename: string, text: string): Platform {
   throw new Error(`Cannot determine console type for "${filename}".`);
 }
 
-export function convert(loaded: LoadedFile, selection: Selection): ConversionResult {
+export function convert(
+  loaded: LoadedFile,
+  selection: Selection,
+  cleared: ClearSet = new Set(),
+): ConversionResult {
   const report: ReportEntry[] = [];
   const { model, target } = loaded;
 
   const text =
     target === "m32"
-      ? writeM32(model, selection, report)
-      : writeWing(model, selection, report);
+      ? writeM32(model, selection, cleared, report)
+      : writeWing(model, selection, cleared, report);
 
-  summarise(loaded, selection, report);
+  summarise(loaded, selection, cleared, report);
 
   const base = stripExt(loaded.filename);
   const ext = target === "m32" ? "scn" : model.kind === "channel-preset" ? "chn" : "snap";
@@ -65,7 +75,12 @@ export function convert(loaded: LoadedFile, selection: Selection): ConversionRes
   };
 }
 
-function summarise(loaded: LoadedFile, selection: Selection, report: ReportEntry[]): void {
+function summarise(
+  loaded: LoadedFile,
+  selection: Selection,
+  cleared: ClearSet,
+  report: ReportEntry[],
+): void {
   const { model, source, target } = loaded;
   const t = target.toUpperCase();
 
@@ -83,11 +98,21 @@ function summarise(loaded: LoadedFile, selection: Selection, report: ReportEntry
       report.push({ severity: "drop", scope: "dcas", message: `WING DCAs above 8 dropped (M32 has 8).` });
   }
 
+  if (cleared.size) {
+    report.push({
+      severity: "info",
+      scope: "cleared",
+      message: `${cleared.size} strip(s) blanked to neutral defaults on the ${t}.`,
+    });
+  }
+
   const picked = countLeaves(selection);
   report.unshift({
     severity: "info",
     scope: "summary",
-    message: `${picked} item(s) selected → ${t}. Everything not selected keeps the target template's values.`,
+    message: `${picked} item(s) selected → ${t}${
+      cleared.size ? `, ${cleared.size} blanked` : ""
+    }. Anything neither selected nor blanked keeps the target template's values.`,
   });
 }
 

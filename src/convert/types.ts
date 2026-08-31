@@ -43,6 +43,13 @@ export interface Inventory {
 /** Set of leaf node ids the user wants converted. */
 export type Selection = Set<string>;
 
+/**
+ * Set of strip node ids (e.g. `channels.5`, `buses.3`) the user wants blanked on
+ * the target: instead of copying from the source *or* leaving the target
+ * template's values, the writer resets that strip to neutral defaults.
+ */
+export type ClearSet = Set<string>;
+
 export type ReportSeverity = "ok" | "info" | "warn" | "drop";
 
 export interface ReportEntry {

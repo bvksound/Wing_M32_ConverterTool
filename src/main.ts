@@ -6,6 +6,7 @@ import {
   CHANNEL_BLOCKS,
 } from "./convert/inventory";
 import type {
+  ClearSet,
   ConversionResult,
   InventoryNode,
   ReportEntry,
@@ -18,6 +19,7 @@ const workspace = must<HTMLDivElement>("#workspace");
 
 let loaded: LoadedFile | null = null;
 let selection: Selection = new Set();
+let cleared: ClearSet = new Set();
 let lastResult: ConversionResult | null = null;
 let activeSection = "channels";
 
@@ -57,6 +59,7 @@ async function intake(file: File): Promise<void> {
     const text = await file.text();
     loaded = loadShowFile(file.name, text);
     selection = defaultSelection(loaded.inventory.root);
+    cleared = new Set();
     activeSection = loaded.inventory.root[0]?.id ?? "channels";
     renderWorkspace();
     recompute();
@@ -148,15 +151,18 @@ function renderWorkspace(): void {
 
   must<HTMLButtonElement>("#download").addEventListener("click", download);
   must<HTMLButtonElement>("#sel-all").addEventListener("click", () => {
+    cleared.clear();
     inventory.root.forEach((n) => setSubtree(n, true));
     rerender();
   });
   must<HTMLButtonElement>("#sel-none").addEventListener("click", () => {
     selection.clear();
+    cleared.clear();
     rerender();
   });
   must<HTMLButtonElement>("#sel-default").addEventListener("click", () => {
     selection = defaultSelection(inventory.root);
+    cleared.clear();
     rerender();
   });
 
@@ -328,16 +334,18 @@ function matrixRow(
   blocks: readonly string[],
   isChannel: boolean,
 ): HTMLElement {
+  const isCleared = cleared.has(node.id);
   const row = document.createElement("div");
   row.className = "mrow";
   if (!node.convertible) row.classList.add("dropped");
+  else if (isCleared) row.classList.add("cleared");
   else if (!node.active) row.classList.add("inactive");
-  row.style.setProperty("--col", colourVar(node.facets?.colour));
+  row.style.setProperty("--col", colourVar(isCleared ? "off" : node.facets?.colour));
 
   const idx = node.id.split(".").pop()!;
   const rowLeaves = convertibleLeaves(node);
   const rowState =
-    rowLeaves.length === 0
+    isCleared || rowLeaves.length === 0
       ? "off"
       : rowLeaves.every((l) => selection.has(l.id))
         ? "on"
@@ -345,8 +353,8 @@ function matrixRow(
           ? "mixed"
           : "off";
 
-  const cb = mkCheck(node.convertible ? rowState : "off");
-  cb.disabled = !node.convertible;
+  const cb = mkCheck(node.convertible && !isCleared ? rowState : "off");
+  cb.disabled = !node.convertible || isCleared;
   cb.addEventListener("change", () => {
     setSubtree(node, cb.checked);
     rerender();
@@ -370,18 +378,39 @@ function matrixRow(
   meta.className = "mrow-meta";
   const f = node.facets?.fader;
   meta.innerHTML = `
-    ${node.facets?.muted ? `<span class="tag mute">M</span>` : ""}
-    ${node.facets?.stereo ? `<span class="tag st">ST</span>` : ""}
-    ${f != null && Number.isFinite(f) ? `<span class="db">${fmtDb(f)}</span>` : f != null ? `<span class="db">−∞</span>` : ""}
+    ${isCleared ? `<span class="blank-badge">BLANK</span>` : ""}
+    ${node.facets?.muted && !isCleared ? `<span class="tag mute">M</span>` : ""}
+    ${node.facets?.stereo && !isCleared ? `<span class="tag st">ST</span>` : ""}
+    ${!isCleared && f != null && Number.isFinite(f) ? `<span class="db">${fmtDb(f)}</span>` : !isCleared && f != null ? `<span class="db">−∞</span>` : ""}
   `;
 
   const cells = document.createElement("div");
   cells.className = "mrow-cells";
   for (const b of blocks) {
-    cells.appendChild(blockCell(node, b));
+    cells.appendChild(blockCell(node, b, isCleared));
   }
 
-  row.append(label, nameBox, meta, cells);
+  const clearBtn = document.createElement("button");
+  clearBtn.className = "clear-btn" + (isCleared ? " active" : "");
+  clearBtn.disabled = !node.convertible;
+  clearBtn.textContent = isCleared ? "↺" : "⌫";
+  clearBtn.title = node.convertible
+    ? isCleared
+      ? "Undo — stop blanking this strip on the target"
+      : "Blank this strip on the converted file (name, EQ, dynamics, sends all reset)"
+    : "";
+  clearBtn.addEventListener("click", () => {
+    if (!node.convertible) return;
+    if (cleared.has(node.id)) {
+      cleared.delete(node.id);
+    } else {
+      cleared.add(node.id);
+      setSubtree(node, false);
+    }
+    rerender();
+  });
+
+  row.append(label, nameBox, meta, cells, clearBtn);
   if (!node.convertible && node.note) {
     row.title = node.note;
     const drop = document.createElement("span");
@@ -392,13 +421,13 @@ function matrixRow(
   return row;
 }
 
-function blockCell(node: InventoryNode, block: string): HTMLElement {
+function blockCell(node: InventoryNode, block: string, isCleared: boolean): HTMLElement {
   const leaf = node.children?.find((l) => l.id.endsWith(`.${block}`));
   const cell = document.createElement("button");
   cell.className = "cell";
   cell.textContent = BLOCK_LABELS[block] ?? block;
 
-  if (!leaf || !node.convertible) {
+  if (!leaf || !node.convertible || isCleared) {
     cell.classList.add("na");
     cell.disabled = true;
     return cell;
@@ -499,10 +528,10 @@ function listBody(group: InventoryNode): HTMLElement {
 
 function recompute(): void {
   if (!loaded) return;
-  lastResult = convert(loaded, selection);
+  lastResult = convert(loaded, selection, cleared);
   renderReport(lastResult.report);
   const btn = document.querySelector<HTMLButtonElement>("#download");
-  if (btn) btn.disabled = selection.size === 0;
+  if (btn) btn.disabled = selection.size === 0 && cleared.size === 0;
 }
 
 function renderReport(report: ReportEntry[]): void {

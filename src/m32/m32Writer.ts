@@ -9,7 +9,7 @@ import type {
 import { neutralColourToM32 } from "../model/colour";
 import { foldEq, m32BandToken } from "../convert/eqFold";
 import { kindToM32Type } from "../convert/fxMap";
-import type { ReportEntry, Selection } from "../convert/types";
+import type { ClearSet, ReportEntry, Selection } from "../convert/types";
 import m32Template from "../templates/m32-default.scn?raw";
 import { ScnDocument, formatHeader } from "./scnDocument";
 import {
@@ -29,6 +29,7 @@ const BUS_COUNT = 16;
 export function writeM32(
   model: ShowModel,
   selection: Selection,
+  cleared: ClearSet,
   report: ReportEntry[],
 ): string {
   const doc = ScnDocument.parse(m32Template);
@@ -44,6 +45,10 @@ export function writeM32(
   for (const ch of model.channels) {
     if (ch.index > 32) continue;
     const base = `/ch/${p2(ch.index)}`;
+    if (cleared.has(`channels.${ch.index}`)) {
+      clearM32Strip(doc, base, CH_EQ_BANDS, BUS_COUNT, true);
+      continue;
+    }
     if (on(`channels.${ch.index}.strip`)) writeStrip(doc, base, ch, report);
     if (on(`channels.${ch.index}.input`)) writeInput(doc, base, ch, report);
     if (on(`channels.${ch.index}.eq`) && ch.eq)
@@ -56,6 +61,10 @@ export function writeM32(
   for (const aux of model.auxIns) {
     if (aux.index > 8) continue;
     const base = `/auxin/${p2(aux.index)}`;
+    if (cleared.has(`auxins.${aux.index}`)) {
+      clearM32Strip(doc, base, CH_EQ_BANDS, BUS_COUNT, false);
+      continue;
+    }
     if (on(`auxins.${aux.index}.strip`)) writeStrip(doc, base, aux, report);
     if (on(`auxins.${aux.index}.eq`) && aux.eq)
       writeEq(doc, base, aux.eq, CH_EQ_BANDS, `auxins.${aux.index}.eq`, report);
@@ -65,6 +74,10 @@ export function writeM32(
   for (const bus of model.buses) {
     if (bus.index > BUS_COUNT) continue;
     const base = `/bus/${p2(bus.index)}`;
+    if (cleared.has(`buses.${bus.index}`)) {
+      clearM32Strip(doc, base, BUS_EQ_BANDS, MTX_COUNT, false);
+      continue;
+    }
     if (on(`buses.${bus.index}.strip`)) writeBusStrip(doc, base, bus);
     if (on(`buses.${bus.index}.eq`) && bus.eq)
       writeEq(doc, base, bus.eq, BUS_EQ_BANDS, `buses.${bus.index}.eq`, report);
@@ -75,6 +88,10 @@ export function writeM32(
   for (const mtx of model.matrices) {
     if (mtx.index > MTX_COUNT) continue;
     const base = `/mtx/${p2(mtx.index)}`;
+    if (cleared.has(`matrices.${mtx.index}`)) {
+      clearM32Strip(doc, base, BUS_EQ_BANDS, 0, false);
+      continue;
+    }
     if (on(`matrices.${mtx.index}.strip`)) writeBusStrip(doc, base, mtx);
     if (on(`matrices.${mtx.index}.eq`) && mtx.eq)
       writeEq(doc, base, mtx.eq, BUS_EQ_BANDS, `matrices.${mtx.index}.eq`, report);
@@ -113,6 +130,53 @@ export function writeM32(
   }
 
   return doc.serialize();
+}
+
+/**
+ * Blank a strip on the target: name cleared, colour off, fader -oo, all
+ * processing bypassed, every send off, group memberships removed. Source-patch
+ * (`/ch/NN/config` input index) and head-amp gain are left alone so the physical
+ * routing still makes sense.
+ */
+function clearM32Strip(
+  doc: ScnDocument,
+  base: string,
+  eqBands: number,
+  sendCount: number,
+  isChannel: boolean,
+): void {
+  if (doc.has(`${base}/config`)) {
+    doc.setArg(`${base}/config`, 0, quote(""));
+    const cfg = doc.get(`${base}/config`) ?? [];
+    doc.setArg(`${base}/config`, isChannel ? 2 : cfg.length - 1, "OFF");
+  }
+  if (doc.has(`${base}/mix`)) {
+    doc.setArg(`${base}/mix`, 1, "-oo");
+    doc.setArg(`${base}/mix`, 3, "+0");
+  }
+  if (isChannel && doc.has(`${base}/preamp`)) {
+    doc.setArg(`${base}/preamp`, 0, "+0.0");
+    doc.setArg(`${base}/preamp`, 1, "OFF");
+    doc.setArg(`${base}/preamp`, 2, "OFF");
+  }
+  if (isChannel && doc.has(`${base}/gate`)) doc.setArg(`${base}/gate`, 0, "OFF");
+  if (doc.has(`${base}/dyn`)) doc.setArg(`${base}/dyn`, 0, "OFF");
+  if (doc.has(`${base}/eq`)) doc.set(`${base}/eq`, ["OFF"]);
+  for (let i = 1; i <= eqBands; i++) {
+    const path = `${base}/eq/${i}`;
+    if (!doc.has(path)) continue;
+    doc.setArg(path, 2, "+0.00");
+  }
+  for (let i = 1; i <= sendCount; i++) {
+    const path = `${base}/mix/${p2(i)}`;
+    if (!doc.has(path)) continue;
+    doc.setArg(path, 0, "OFF");
+    doc.setArg(path, 1, "-oo");
+  }
+  if (doc.has(`${base}/grp`)) {
+    doc.setArg(`${base}/grp`, 0, "%00000000");
+    doc.setArg(`${base}/grp`, 1, "%000000");
+  }
 }
 
 function writeStrip(
