@@ -5,6 +5,7 @@ import { loadShowFile, convert } from "../src/convert/convert";
 import { selectAllDefault } from "../src/convert/types";
 import { ScnDocument } from "../src/m32/scnDocument";
 import { blankM32Scene } from "../src/m32/m32Writer";
+import { blankWingSnapshot } from "../src/wing/wingWriter";
 import { decodeLevel } from "../src/m32/tokens";
 
 const ex = (rel: string) =>
@@ -129,6 +130,34 @@ describe("blankM32Scene", () => {
     expect(doc.get("/ch/01/config")![3]).toBe("1");
     expect(doc.get("/ch/32/config")![3]).toBe("32");
     expect(doc.has("/config/routing")).toBe(true);
+  });
+});
+
+describe("blankWingSnapshot", () => {
+  const json = JSON.parse(blankWingSnapshot());
+
+  it("is a valid minified snapshot with 40 channels", () => {
+    expect(json.type).toMatch(/^snapshot/);
+    expect(Object.keys(json.ae_data.ch)).toHaveLength(40);
+    expect(blankWingSnapshot()).not.toMatch(/\n/); // single line, like the console writes
+  });
+
+  it("clears every channel strip but keeps its input connection", () => {
+    for (let i = 1; i <= 40; i++) {
+      const c = json.ae_data.ch[String(i)];
+      expect(c.name).toBe("");
+      expect(c.fdr).toBe(-144);
+      expect(c.eq.on).toBe(false);
+      expect(c.gate.on).toBe(false);
+      expect(c.dyn.on).toBe(false);
+      expect(c.tags).toBe("");
+      expect(c.send["1"].on).toBe(false);
+      expect(c.in.conn).toBeDefined(); // patch intact
+    }
+  });
+
+  it("keeps the physical source labels under io", () => {
+    expect(json.ae_data.io.in.LCL["1"].name).toBe("VOX SAM");
   });
 });
 

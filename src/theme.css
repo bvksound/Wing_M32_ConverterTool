@@ -68,8 +68,16 @@ p.lead { font-size: 15.5px; max-width: 64ch; }
 .dz-inner strong { font-size: 16px; }
 .dz-inner span { color: var(--muted); font-size: 13.5px; }
 
-.util-line { font-size: 13px; color: var(--muted2); margin: 14px 0 0; }
-.util-line .link-btn { font-size: 11px; }
+.blank-templates {
+  margin: 18px 0 0; padding: 16px 18px;
+  border: 1px solid var(--border); border-radius: 12px; background: var(--panel2);
+}
+.bt-head { display: flex; flex-direction: column; gap: 3px; margin-bottom: 12px; }
+.bt-head .eyebrow { margin: 0; }
+.bt-head span:last-child { font-size: 12.5px; color: var(--muted2); }
+.bt-buttons { display: flex; gap: 10px; flex-wrap: wrap; }
+.bt-buttons .btn { font-size: 13px; padding: 9px 16px; }
+.bt-buttons .btn code { color: var(--muted); }
 
 #workspace { margin: 26px 0 90px; }
 

@@ -93,7 +93,8 @@ export class WingDoc {
   }
 
   serialize(): string {
-    return JSON.stringify(this.root, null, 1);
+    // WING writes its .snap / .chn files as a single minified line.
+    return JSON.stringify(this.root);
   }
 }
 

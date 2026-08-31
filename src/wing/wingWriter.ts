@@ -112,6 +112,43 @@ function writeWingPreset(
 }
 
 /**
+ * A WING snapshot that resets every mix strip to neutral: names/colours
+ * cleared, every fader (channels, aux, buses, matrices, mains, DCAs) off, all
+ * EQ / gate / dynamics / pre-EQ bypassed, filters off, every send off, all
+ * DCA / mute-group tags removed.
+ *
+ * Input connections and the source labels under `io` are left intact — this
+ * clears the mix, it does not re-patch the console.
+ */
+export function blankWingSnapshot(): string {
+  const doc = WingDoc.parse(wingSnapTemplate);
+  const ae = "ae_data";
+
+  for (let i = 1; i <= 40; i++) clearWingStrip(doc, `${ae}.ch.${i}`, 16, "");
+  for (let i = 1; i <= 8; i++) clearWingStrip(doc, `${ae}.aux.${i}`, 16, "");
+  for (let i = 1; i <= 16; i++) clearWingStrip(doc, `${ae}.bus.${i}`, 8, "MX");
+  for (let i = 1; i <= 8; i++) clearWingStrip(doc, `${ae}.mtx.${i}`, 0, "");
+  for (let i = 1; i <= 4; i++) clearWingStrip(doc, `${ae}.main.${i}`, 8, "MX");
+
+  for (let i = 1; i <= 16; i++) {
+    const b = `${ae}.dca.${i}`;
+    if (!isObj(doc.get(b))) continue;
+    doc.set(`${b}.name`, "");
+    doc.set(`${b}.col`, 0);
+    doc.set(`${b}.mute`, false);
+    doc.set(`${b}.fdr`, 0); // DCAs sit at unity
+  }
+  for (let i = 1; i <= 8; i++) {
+    const b = `${ae}.mgrp.${i}`;
+    if (isObj(doc.get(b))) doc.set(`${b}.mute`, false);
+  }
+
+  doc.set("active_show", "");
+  doc.set("active_scene", "");
+  return doc.serialize();
+}
+
+/**
  * Blank a strip on the WING: name/colour cleared, fader off, all processing
  * bypassed, every send off, DCA/mute-group tags stripped. The input connection
  * is left untouched.

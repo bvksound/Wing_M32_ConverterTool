@@ -2,6 +2,7 @@ import "./theme.css";
 import logoUrl from "./assets/bvk-logo.png";
 import { convert, loadShowFile, type LoadedFile } from "./convert/convert";
 import { blankM32Scene } from "./m32/m32Writer";
+import { blankWingSnapshot } from "./wing/wingWriter";
 import {
   BLOCK_LABELS,
   BUS_BLOCKS,
@@ -28,6 +29,9 @@ if (favicon) favicon.href = logoUrl;
 
 document.querySelector<HTMLButtonElement>("#blank-scn")?.addEventListener("click", () => {
   saveText("BLANK.scn", blankM32Scene("BLANK"), "text/plain");
+});
+document.querySelector<HTMLButtonElement>("#blank-snap")?.addEventListener("click", () => {
+  saveText("BLANK.snap", blankWingSnapshot(), "application/json");
 });
 
 let loaded: LoadedFile | null = null;
