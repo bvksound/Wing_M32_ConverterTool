@@ -1,6 +1,7 @@
 import "./theme.css";
 import logoUrl from "./assets/bvk-logo.png";
 import { convert, loadShowFile, type LoadedFile } from "./convert/convert";
+import { blankM32Scene } from "./m32/m32Writer";
 import {
   BLOCK_LABELS,
   BUS_BLOCKS,
@@ -24,6 +25,10 @@ const brandLogo = document.querySelector<HTMLImageElement>("#brand-logo");
 if (brandLogo) brandLogo.src = logoUrl;
 const favicon = document.querySelector<HTMLLinkElement>("#favicon");
 if (favicon) favicon.href = logoUrl;
+
+document.querySelector<HTMLButtonElement>("#blank-scn")?.addEventListener("click", () => {
+  saveText("BLANK.scn", blankM32Scene("BLANK"), "text/plain");
+});
 
 let loaded: LoadedFile | null = null;
 let selection: Selection = new Set();
@@ -584,11 +589,14 @@ function renderReport(report: ReportEntry[]): void {
 
 function download(): void {
   if (!lastResult) return;
-  const blob = new Blob([lastResult.text], { type: lastResult.mime });
-  const url = URL.createObjectURL(blob);
+  saveText(lastResult.filename, lastResult.text, lastResult.mime);
+}
+
+function saveText(filename: string, text: string, mime: string): void {
+  const url = URL.createObjectURL(new Blob([text], { type: mime }));
   const a = document.createElement("a");
   a.href = url;
-  a.download = lastResult.filename;
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
 }

@@ -140,6 +140,46 @@ export function writeM32(
 }
 
 /**
+ * A scene that resets every mix strip to neutral: all names/colours cleared,
+ * every fader (channels, buses, matrices, mains, DCAs) at -oo, all EQ / gate /
+ * dynamics bypassed, every send off, all DCA / mute-group membership removed.
+ *
+ * Physical setup is left intact — input patch, head-amp gains, routing, user
+ * layers, FX engine types. Recalling this mutes the console; it does not
+ * repatch it.
+ */
+export function blankM32Scene(name = "BLANK"): string {
+  const doc = ScnDocument.parse(m32Template);
+  doc.header.name = name.replace(/["\r\n]/g, "").slice(0, 16);
+  doc.header.notes = "cleared mix — faders down, processing bypassed";
+  doc.header.raw = formatHeader(doc.header);
+
+  for (let i = 1; i <= 32; i++) clearM32Strip(doc, `/ch/${p2(i)}`, CH_EQ_BANDS, BUS_COUNT, true);
+  for (let i = 1; i <= 8; i++) clearM32Strip(doc, `/auxin/${p2(i)}`, CH_EQ_BANDS, BUS_COUNT, false);
+  for (let i = 1; i <= 8; i++) clearM32Strip(doc, `/fxrtn/${p2(i)}`, CH_EQ_BANDS, BUS_COUNT, false);
+  for (let i = 1; i <= BUS_COUNT; i++) clearM32Strip(doc, `/bus/${p2(i)}`, BUS_EQ_BANDS, MTX_COUNT, false);
+  for (let i = 1; i <= MTX_COUNT; i++) clearM32Strip(doc, `/mtx/${p2(i)}`, BUS_EQ_BANDS, 0, false);
+  clearM32Strip(doc, "/main/st", BUS_EQ_BANDS, MTX_COUNT, false);
+  clearM32Strip(doc, "/main/m", BUS_EQ_BANDS, MTX_COUNT, false);
+
+  for (let i = 1; i <= 8; i++) {
+    if (doc.has(`/dca/${i}/config`)) {
+      doc.setArg(`/dca/${i}/config`, 0, quote(""));
+      doc.setArg(`/dca/${i}/config`, 2, "OFF");
+    }
+    if (doc.has(`/dca/${i}`)) {
+      doc.setArg(`/dca/${i}`, 0, "ON");
+      doc.setArg(`/dca/${i}`, 1, "-oo");
+    }
+  }
+
+  // Console-wide: no channel mutes, oscillator off.
+  if (doc.has("/config/mute")) doc.set("/config/mute", ["OFF", "OFF", "OFF", "OFF", "OFF", "OFF"]);
+
+  return doc.serialize();
+}
+
+/**
  * Blank a strip on the target: name cleared, colour off, fader -oo, all
  * processing bypassed, every send off, group memberships removed. Source-patch
  * (`/ch/NN/config` input index) and head-amp gain are left alone so the physical
@@ -158,8 +198,9 @@ function clearM32Strip(
     doc.setArg(`${base}/config`, isChannel ? 2 : cfg.length - 1, "OFF");
   }
   if (doc.has(`${base}/mix`)) {
-    doc.setArg(`${base}/mix`, 1, "-oo");
-    doc.setArg(`${base}/mix`, 3, "+0");
+    const mix = doc.get(`${base}/mix`) ?? [];
+    doc.setArg(`${base}/mix`, 1, "-oo"); // fader
+    if (mix.length > 3 && /^[+-]?\d/.test(mix[3] ?? "")) doc.setArg(`${base}/mix`, 3, "+0"); // pan
   }
   if (isChannel && doc.has(`${base}/preamp`)) {
     doc.setArg(`${base}/preamp`, 0, "+0.0");

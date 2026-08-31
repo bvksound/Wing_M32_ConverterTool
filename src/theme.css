@@ -68,6 +68,9 @@ p.lead { font-size: 15.5px; max-width: 64ch; }
 .dz-inner strong { font-size: 16px; }
 .dz-inner span { color: var(--muted); font-size: 13.5px; }
 
+.util-line { font-size: 13px; color: var(--muted2); margin: 14px 0 0; }
+.util-line .link-btn { font-size: 11px; }
+
 #workspace { margin: 26px 0 90px; }
 
 /* summary */

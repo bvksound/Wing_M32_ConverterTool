@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 import { loadShowFile, convert } from "../src/convert/convert";
 import { selectAllDefault } from "../src/convert/types";
 import { ScnDocument } from "../src/m32/scnDocument";
+import { blankM32Scene } from "../src/m32/m32Writer";
+import { decodeLevel } from "../src/m32/tokens";
 
 const ex = (rel: string) =>
   readFileSync(fileURLToPath(new URL(`../Examples/${rel}`, import.meta.url)), "latin1");
@@ -88,6 +90,45 @@ describe("high-cut / low-cut filters", () => {
     const json = JSON.parse(res.text);
     expect(json.ae_data.ch["14"].flt.hc).toBe(true);
     expect(json.ae_data.ch["14"].flt.hcf).toBeGreaterThan(4000);
+  });
+});
+
+describe("blankM32Scene", () => {
+  const scn = blankM32Scene("BLANK");
+  const doc = ScnDocument.parse(scn);
+
+  it("parses and keeps all 32 channels / 16 buses", () => {
+    expect(doc.header.name).toBe("BLANK");
+    expect(doc.paths("/ch/").filter((p) => p.endsWith("/config"))).toHaveLength(32);
+    expect(doc.paths("/bus/").filter((p) => p.endsWith("/config"))).toHaveLength(16);
+  });
+
+  it("every strip name is empty and every fader is -oo", () => {
+    for (let i = 1; i <= 32; i++) {
+      expect(doc.getArg(`/ch/${String(i).padStart(2, "0")}/config`, 0)).toBe("");
+      expect(decodeLevel(doc.get(`/ch/${String(i).padStart(2, "0")}/mix`)![1]!)).toBe(-Infinity);
+    }
+    expect(decodeLevel(doc.get("/main/st/mix")![1]!)).toBe(-Infinity);
+    for (let i = 1; i <= 8; i++) {
+      expect(decodeLevel(doc.get(`/dca/${i}`)![1]!)).toBe(-Infinity);
+    }
+  });
+
+  it("bypasses all processing and clears group membership", () => {
+    for (let i = 1; i <= 32; i++) {
+      const n = `/ch/${String(i).padStart(2, "0")}`;
+      expect(doc.get(`${n}/eq`)![0]).toBe("OFF");
+      expect(doc.get(`${n}/gate`)![0]).toBe("OFF");
+      expect(doc.get(`${n}/dyn`)![0]).toBe("OFF");
+      expect(doc.get(`${n}/grp`)).toEqual(["%00000000", "%000000"]);
+    }
+  });
+
+  it("leaves the input patch intact", () => {
+    // /ch/NN/config <name> <icon> <colour> <source-index>
+    expect(doc.get("/ch/01/config")![3]).toBe("1");
+    expect(doc.get("/ch/32/config")![3]).toBe("32");
+    expect(doc.has("/config/routing")).toBe(true);
   });
 });
 
