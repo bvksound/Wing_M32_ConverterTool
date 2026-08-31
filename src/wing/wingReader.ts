@@ -207,7 +207,7 @@ function readEq(eq: Json | undefined): Eq | undefined {
   if (!isObj(eq)) return undefined;
   const bands: EqBand[] = [];
   bands.push({
-    type: str(eq.leq) === "PEQ" ? "bell" : "low-shelf",
+    type: wingBandType(str(eq.leq), "low"),
     freq: num(eq.lf) ?? 80,
     gain: num(eq.lg) ?? 0,
     q: num(eq.lq) ?? 1,
@@ -222,12 +222,26 @@ function readEq(eq: Json | undefined): Eq | undefined {
     });
   }
   bands.push({
-    type: str(eq.heq) === "PEQ" ? "bell" : "high-shelf",
+    type: wingBandType(str(eq.heq), "high"),
     freq: num(eq.hf) ?? 12000,
     gain: num(eq.hg) ?? 0,
     q: num(eq.hq) ?? 1,
   });
   return { on: bool(eq.on), model: str(eq.mdl), bands };
+}
+
+/** Map a WING outer-band mode string to a neutral band type. */
+function wingBandType(mode: string | undefined, end: "low" | "high"): EqBand["type"] {
+  switch (mode) {
+    case "PEQ":
+      return "bell";
+    case "CUT":
+    case "LC":
+    case "HC":
+      return end === "low" ? "low-cut" : "high-cut";
+    default: // "SHV" and anything unrecognised
+      return end === "low" ? "low-shelf" : "high-shelf";
+  }
 }
 
 function readGate(g: Json | undefined): Gate | undefined {

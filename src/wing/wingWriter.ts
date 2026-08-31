@@ -35,7 +35,7 @@ export function writeWing(
     }
     if (on(`channels.${ch.index}.strip`)) writeStrip(doc, b, ch);
     if (on(`channels.${ch.index}.input`)) writeInput(doc, b, ch, model, report);
-    if (on(`channels.${ch.index}.eq`) && ch.eq) writeEq(doc, `${b}.eq`, ch.eq);
+    if (on(`channels.${ch.index}.eq`) && ch.eq) writeChannelEq(doc, b, ch.eq);
     if (on(`channels.${ch.index}.gate`) && ch.gate) writeGate(doc, `${b}.gate`, ch.gate);
     if (on(`channels.${ch.index}.comp`) && ch.comp) writeComp(doc, `${b}.dyn`, ch.comp);
     if (on(`channels.${ch.index}.sends`)) writeSends(doc, b, ch.sends, 16);
@@ -98,7 +98,7 @@ function writeWingPreset(
   if (!ch) return doc.serialize();
   const b = "ch_data";
   if (selection.has("channels.1.strip")) writeStrip(doc, b, ch);
-  if (selection.has("channels.1.eq") && ch.eq) writeEq(doc, `${b}.eq`, ch.eq);
+  if (selection.has("channels.1.eq") && ch.eq) writeChannelEq(doc, b, ch.eq);
   if (selection.has("channels.1.gate") && ch.gate) writeGate(doc, `${b}.gate`, ch.gate);
   if (selection.has("channels.1.comp") && ch.comp) writeComp(doc, `${b}.dyn`, ch.comp);
   if (selection.has("channels.1.sends")) writeSends(doc, b, ch.sends, 16);
@@ -201,6 +201,27 @@ function writeInput(
         doc.set(`ae_data.io.in.${grp}.${inNo}.vph`, ch.input.phantom);
     }
   }
+}
+
+/**
+ * Channel EQ. A low-cut / high-cut band (the M32 puts channel HPF/LPF in EQ
+ * bands 1 and 4) is routed to the WING's dedicated `flt` low-cut / high-cut,
+ * which is the natural home for it; the rest go to the parametric EQ.
+ */
+function writeChannelEq(doc: WingDoc, base: string, eq: Eq): void {
+  const parametric: typeof eq.bands = [];
+  for (const band of eq.bands) {
+    if (band.type === "low-cut") {
+      doc.set(`${base}.flt.lc`, true);
+      doc.set(`${base}.flt.lcf`, band.freq);
+    } else if (band.type === "high-cut") {
+      doc.set(`${base}.flt.hc`, true);
+      doc.set(`${base}.flt.hcf`, band.freq);
+    } else {
+      parametric.push(band);
+    }
+  }
+  writeEq(doc, `${base}.eq`, { ...eq, bands: parametric });
 }
 
 function writeEq(doc: WingDoc, b: string, eq: Eq): void {

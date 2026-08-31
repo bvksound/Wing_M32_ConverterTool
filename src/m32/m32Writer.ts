@@ -51,8 +51,15 @@ export function writeM32(
     }
     if (on(`channels.${ch.index}.strip`)) writeStrip(doc, base, ch, report);
     if (on(`channels.${ch.index}.input`)) writeInput(doc, base, ch, report);
-    if (on(`channels.${ch.index}.eq`) && ch.eq)
-      writeEq(doc, base, ch.eq, CH_EQ_BANDS, `channels.${ch.index}.eq`, report);
+    if (on(`channels.${ch.index}.eq`)) {
+      writeChannelEq(doc, base, ch, `channels.${ch.index}.eq`, report);
+    } else if (ch.lowpass?.on) {
+      report.push({
+        severity: "warn",
+        scope: `channels.${ch.index}.eq`,
+        message: `Channel ${ch.index} high-cut filter not transferred — the M32 has no channel low-pass; select the EQ block to place it in EQ band 4.`,
+      });
+    }
     if (on(`channels.${ch.index}.gate`) && ch.gate) writeGate(doc, base, ch.gate);
     if (on(`channels.${ch.index}.comp`) && ch.comp) writeComp(doc, base, ch.comp);
     if (on(`channels.${ch.index}.sends`)) writeSends(doc, base, ch, BUS_COUNT);
@@ -246,8 +253,53 @@ function writeEq(
   scope: string,
   report: ReportEntry[],
 ): void {
-  if (doc.has(`${base}/eq`)) doc.set(`${base}/eq`, [encodeBool(eq.on)]);
-  const { bands, dropped } = foldEq(eq.bands, targetBands);
+  writeEqBands(doc, base, eq, targetBands, scope, report);
+}
+
+/**
+ * Channel EQ, with the WING dedicated high-cut filter (`flt.hc`) folded into
+ * M32 EQ band 4 as an `HCut` — the M32 has no channel low-pass filter, so the
+ * only place it can live is an EQ band. The WING low-cut goes to the preamp HPF
+ * (see writeInput), not here.
+ */
+function writeChannelEq(
+  doc: ScnDocument,
+  base: string,
+  ch: Channel,
+  scope: string,
+  report: ReportEntry[],
+): void {
+  const lp = ch.lowpass?.on ? ch.lowpass : undefined;
+  const usable = lp ? CH_EQ_BANDS - 1 : CH_EQ_BANDS;
+  const eq: Eq = ch.eq ?? { on: false, bands: [] };
+  writeEqBands(doc, base, eq, usable, scope, report, lp != null || eq.on);
+
+  if (lp) {
+    const path = `${base}/eq/${CH_EQ_BANDS}`;
+    if (doc.has(path)) {
+      doc.set(path, ["HCut", encodeFreq(lp.freq), "+0.00", "2.0"]);
+    }
+    report.push({
+      severity: "info",
+      scope,
+      message: `Channel high-cut (${Math.round(lp.freq)} Hz) placed in M32 EQ band ${CH_EQ_BANDS} as HCut; that band is no longer free for tone shaping.`,
+    });
+  }
+}
+
+function writeEqBands(
+  doc: ScnDocument,
+  base: string,
+  eq: Eq,
+  usableBands: number,
+  scope: string,
+  report: ReportEntry[],
+  forceOn = false,
+): void {
+  if (doc.has(`${base}/eq`)) {
+    doc.set(`${base}/eq`, [encodeBool(eq.on || forceOn)]);
+  }
+  const { bands, dropped } = foldEq(eq.bands, usableBands);
   bands.forEach((band, i) => {
     const path = `${base}/eq/${i + 1}`;
     if (!doc.has(path)) return;
@@ -264,7 +316,7 @@ function writeEq(
     report.push({
       severity: "warn",
       scope,
-      message: `EQ folded to ${targetBands} bands; dropped active band(s) ${audibleDropped
+      message: `EQ folded to ${usableBands} band(s); dropped active band(s) ${audibleDropped
         .map((b) => `${Math.round(b.freq)}Hz ${b.gain > 0 ? "+" : ""}${b.gain}dB`)
         .join(", ")}.`,
     });

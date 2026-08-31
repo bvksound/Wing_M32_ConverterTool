@@ -102,7 +102,13 @@ function channelGroup(
               block(`${id}.${c.index}`, "strip", true, "Name, colour, fader, pan, mute"),
               block(`${id}.${c.index}`, "input", true, "Input patch + preamp gain",
                 c.input?.gain != null ? `${round(c.input.gain)} dB` : undefined),
-              eqBlock(`${id}.${c.index}`, c.eq?.bands.length ?? 0, lim.eqBands, c.eq?.on ?? false),
+              eqBlock(
+                `${id}.${c.index}`,
+                c.eq?.bands.length ?? 0,
+                lim.eqBands,
+                (c.eq?.on ?? false) || (c.lowpass?.on ?? false),
+                c.lowpass?.on ?? false,
+              ),
               block(`${id}.${c.index}`, "gate", c.gate?.on ?? false, "Gate / expander",
                 c.gate?.model, c.gate?.model ? `Model "${c.gate.model}" → generic gate.` : undefined),
               block(`${id}.${c.index}`, "comp", c.comp?.on ?? false, "Compressor",
@@ -287,18 +293,26 @@ function eqBlock(
   bandCount: number,
   targetBands: number,
   on: boolean,
+  hasLowpass: boolean,
 ): InventoryNode {
   const fold = bandCount > targetBands;
+  const notes: string[] = [];
+  if (fold) {
+    notes.push(
+      `${bandCount}-band → ${targetBands}-band: shelves + ${targetBands - 2} most-active mids kept.`,
+    );
+  }
+  if (hasLowpass) {
+    notes.push(`High-cut filter transfers here (M32 EQ band ${targetBands}, HCut).`);
+  }
   return {
     id: `${parentId}.eq`,
     label: "EQ",
-    detail: `${bandCount}-band`,
+    detail: hasLowpass ? `${bandCount}-band + HC` : `${bandCount}-band`,
     convertible: true,
     active: on,
     defaultOn: on,
-    note: fold
-      ? `${bandCount}-band → ${targetBands}-band: shelves + ${targetBands - 2} most-active mids kept.`
-      : undefined,
+    note: notes.length ? notes.join(" ") : undefined,
   };
 }
 

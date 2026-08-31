@@ -64,6 +64,33 @@ describe("WING -> M32", () => {
   });
 });
 
+describe("high-cut / low-cut filters", () => {
+  it("WING flt.hc -> M32 EQ band 4 HCut", () => {
+    const j = JSON.parse(WING_CHN);
+    j.ch_data.flt.lc = true;
+    j.ch_data.flt.lcf = 65;
+    j.ch_data.flt.hc = true;
+    j.ch_data.flt.hcf = 9000;
+    const l = loadShowFile("CONTRABAS.chn", JSON.stringify(j));
+    const res = convert(l, selectAllDefault(l.inventory));
+    const band4 = res.text.split("\n").find((x) => x.startsWith("/ch/01/eq/4"))!;
+    expect(band4).toMatch(/^\/ch\/01\/eq\/4 HCut /);
+    // low-cut still lands on the preamp HPF
+    const preamp = res.text.split("\n").find((x) => x.startsWith("/ch/01/preamp"))!;
+    expect(preamp.split(/\s+/)[3]).toBe("ON"); // hpon
+    expect(res.report.some((r) => /high-cut/i.test(r.message))).toBe(true);
+  });
+
+  it("M32 EQ HCut band -> WING flt.hc", () => {
+    const l = loadShowFile("M32R Backup.scn", M32);
+    // ch 14 has "/ch/14/eq ON" with "/ch/14/eq/4 HCut 4k52 ..."
+    const res = convert(l, selectAllDefault(l.inventory));
+    const json = JSON.parse(res.text);
+    expect(json.ae_data.ch["14"].flt.hc).toBe(true);
+    expect(json.ae_data.ch["14"].flt.hcf).toBeGreaterThan(4000);
+  });
+});
+
 describe("clear / blank a strip", () => {
   it("M32 -> WING: a cleared channel comes out blank regardless of selection", () => {
     const l = loadShowFile("M32R Backup.scn", M32);

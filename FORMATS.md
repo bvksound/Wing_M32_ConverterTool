@@ -180,6 +180,8 @@ WING-Edit.
 | Mute groups   | 8           | 6     | Wing 7–8 dropped W→M |
 | FX slots      | 16          | 8     | Wing 9–16 dropped; models remapped via table |
 | Channel EQ    | 6 band + models | 4 band PEQ/shelf | fold: keep LF/HF shelf + 2 most-active mids |
+| Channel LPF   | dedicated `flt.hc` | none — only an EQ `HCut` band | W→M: high-cut becomes EQ band 4 `HCut` (costs a band). M→W: an `LCut`/`HCut` EQ band becomes the WING `flt.lc`/`flt.hc`. |
+| Channel HPF   | dedicated `flt.lc` | dedicated (`/ch/*/preamp` hpon/hpf) | 1:1 |
 | Gate/Comp     | named models| generic | model → nearest M32 algo; core params (thr/ratio/att/rel) carried |
 | Preamp gain   | `io.in.*`   | `/headamp/NNN` | mapped by resolved physical input |
 | Level curve   | dB          | dB / `-oo` | direct; ≤ −90 dB → `-oo` |
