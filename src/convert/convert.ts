@@ -19,6 +19,12 @@ export function loadShowFile(filename: string, text: string): LoadedFile {
   const source = detectPlatform(filename, text);
   const model = source === "m32" ? readM32(text) : readWing(text);
   const target: Platform = source === "m32" ? "wing" : "m32";
+
+  // The dropped file's own name is the most reliable show name — the internal
+  // fields (WING `active_scene`, even the M32 header) are often stale paths.
+  const stem = filename.replace(/.*[\\/]/, "").replace(/\.[^.]+$/, "").trim();
+  if (stem) model.meta.name = stem;
+
   return {
     filename,
     model,

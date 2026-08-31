@@ -48,6 +48,8 @@ describe("WING -> M32", () => {
     expect(res.filename).toMatch(/\(M32\)\.scn$/);
     const doc = ScnDocument.parse(res.text);
     expect(doc.header.version).toBe("4.0");
+    // scene name comes from the dropped file name, not the stale internal path
+    expect(doc.header.name).toBe("BVBA CLEAN");
     // channel count intact
     expect(doc.paths("/ch/").filter((p) => p.endsWith("/config"))).toHaveLength(32);
     // a WING channel name landed on the M32 strip

@@ -34,7 +34,8 @@ export function writeM32(
   const doc = ScnDocument.parse(m32Template);
 
   if (model.meta.name) {
-    doc.header.name = model.meta.name.slice(0, 12);
+    // M32 scene-name field; the console scribble shows ~16 chars.
+    doc.header.name = model.meta.name.replace(/["\r\n]/g, "").slice(0, 16);
     doc.header.raw = formatHeader(doc.header);
   }
 
