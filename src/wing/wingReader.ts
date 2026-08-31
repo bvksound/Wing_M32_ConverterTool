@@ -135,9 +135,14 @@ function readChannel(
     ? obj(c.in as Record<string, Json>, "conn")
     : {};
 
+  const input = readInput(inSet, inConn, io);
+  // On the WING the strip name is usually blank — operators name the physical
+  // source instead, and the console shows that. Fall back to it.
+  const name = (str(c.name) ?? "").trim() || input?.sourceName || "";
+
   return {
     index,
-    name: str(c.name) ?? "",
+    name,
     colour: wingColourToNeutral(num(c.col) ?? 0),
     icon: num(c.icon),
     mute: bool(c.mute),
@@ -145,7 +150,7 @@ function readChannel(
     pan: num(c.pan) ?? 0,
     width: num(c.wid) ?? 0,
     stereoLink: bool(c.clink),
-    input: readInput(inSet, inConn, io),
+    input,
     highpass: readFilter(c.flt, "lc"),
     lowpass: readFilter(c.flt, "hc"),
     gate: readGate(c.gate),
@@ -166,18 +171,20 @@ function readInput(
 ): Channel["input"] {
   const grp = str(conn.grp) ?? "OFF";
   const inNo = num(conn.in) ?? 0;
-  let source = grp === "OFF" ? "none" : `${grp} ${inNo}`;
+  const source = grp === "OFF" ? "none" : `${grp} ${inNo}`;
   let gain: number | undefined;
   let phantom: boolean | undefined;
+  let sourceName: string | undefined;
   const grpObj = isObj(io.in) ? obj(io.in as Record<string, Json>, grp) : {};
   const srcObj = isObj(grpObj) ? obj(grpObj, String(inNo)) : {};
   if (isObj(srcObj) && Object.keys(srcObj).length) {
     gain = num(srcObj.g);
     phantom = bool(srcObj.vph);
-    if (str(srcObj.name)) source += ` (${str(srcObj.name)})`;
+    sourceName = (str(srcObj.name) ?? "").trim() || undefined;
   }
   return {
     source,
+    sourceName,
     gain,
     phantom,
     invert: bool(set.inv),

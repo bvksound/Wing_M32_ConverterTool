@@ -16,7 +16,21 @@ export interface InventoryNode {
   note?: string;
   /** Default ticked state (only meaningful for leaves). */
   defaultOn: boolean;
+  /** This block carries meaningful content in the source file (drives the UI). */
+  active?: boolean;
+  /** Optional visual facets for the matrix UI. */
+  facets?: NodeFacets;
   children?: InventoryNode[];
+}
+
+export interface NodeFacets {
+  colour?: string; // neutral colour name
+  fader?: number; // dB
+  source?: string;
+  muted?: boolean;
+  stereo?: boolean;
+  /** e.g. FX kind or model. */
+  kind?: string;
 }
 
 export interface Inventory {

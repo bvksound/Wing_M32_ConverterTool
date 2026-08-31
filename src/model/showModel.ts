@@ -73,6 +73,8 @@ export interface Channel {
 export interface ChannelInput {
   /** Resolved physical source label, e.g. "LCL 1", "A 12", "CARD 3". */
   source: string;
+  /** Name given to the physical source, where the console stores one separately. */
+  sourceName?: string;
   /** Preamp gain in dB, if the source is a local/stage-box preamp. */
   gain?: number;
   phantom?: boolean;

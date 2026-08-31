@@ -1,11 +1,13 @@
-import type { Channel, Platform, ShowModel } from "../model/showModel";
+import type { Bus, Channel, Dca, FxSlot, Platform, ShowModel } from "../model/showModel";
 import { m32SupportsKind } from "./fxMap";
 import type { Inventory, InventoryNode } from "./types";
 
 interface Limits {
   channels: number;
+  aux: number;
   buses: number;
   matrices: number;
+  mains: number;
   dcas: number;
   muteGroups: number;
   fx: number;
@@ -13,45 +15,45 @@ interface Limits {
 }
 
 const M32_LIMITS: Limits = {
-  channels: 32,
-  buses: 16,
-  matrices: 6,
-  dcas: 8,
-  muteGroups: 6,
-  fx: 8,
-  eqBands: 4,
+  channels: 32, aux: 8, buses: 16, matrices: 6, mains: 2,
+  dcas: 8, muteGroups: 6, fx: 8, eqBands: 4,
+};
+const WING_LIMITS: Limits = {
+  channels: 40, aux: 8, buses: 16, matrices: 8, mains: 4,
+  dcas: 16, muteGroups: 8, fx: 16, eqBands: 6,
 };
 
-const WING_LIMITS: Limits = {
-  channels: 40,
-  buses: 16,
-  matrices: 8,
-  dcas: 16,
-  muteGroups: 8,
-  fx: 16,
-  eqBands: 6,
+/** Column order for the channel matrix; also the child-id suffixes. */
+export const CHANNEL_BLOCKS = ["strip", "input", "eq", "gate", "comp", "sends"] as const;
+export const BUS_BLOCKS = ["strip", "eq", "comp", "sends"] as const;
+export const BLOCK_LABELS: Record<string, string> = {
+  strip: "Strip", input: "In", eq: "EQ", gate: "Gate", comp: "Dyn", sends: "Sends",
 };
 
 export function buildInventory(model: ShowModel, target: Platform): Inventory {
   const lim = target === "m32" ? M32_LIMITS : WING_LIMITS;
   const root: InventoryNode[] = [];
 
-  root.push(channelGroup("channels", "Input channels", model.channels, lim));
-  if (model.auxIns.length) {
-    root.push(channelGroup("auxins", "Aux inputs", model.auxIns, lim, true));
-  }
+  root.push(channelGroup("channels", "Input channels", model.channels, lim.channels, lim, false));
+  if (model.auxIns.length)
+    root.push(channelGroup("auxins", "Aux inputs", model.auxIns, lim.aux, lim, true));
 
   if (model.kind === "scene") {
+    root.push(busGroup("buses", "Mix buses", model.buses, lim.buses));
+    if (model.matrices.length)
+      root.push(busGroup("matrices", "Matrices", model.matrices, lim.matrices));
+    if (model.mains.length)
+      root.push(busGroup("mains", "Main buses", model.mains, lim.mains));
+    root.push(simpleGroup("dcas", "DCA groups", model.dcas, lim.dcas, dcaFacets));
     root.push(
-      busGroup("buses", "Mix buses", model.buses, lim.buses, lim.eqBands >= 6 ? 6 : 6),
+      simpleGroup(
+        "mutegroups",
+        "Mute groups",
+        model.muteGroups.map((g) => ({ index: g.index, name: g.name })),
+        lim.muteGroups,
+      ),
     );
-    root.push(busGroup("matrices", "Matrices", model.matrices, lim.matrices, 6));
-    if (model.mains.length) {
-      root.push(busGroup("mains", "Main buses", model.mains, 4, 6));
-    }
-    root.push(dcaGroup(model, lim));
-    root.push(muteGroupGroup(model, lim));
-    root.push(fxGroup(model, target, lim));
+    root.push(fxGroup(model.fx, target, lim.fx));
     root.push(routingGroup(model));
     root.push(configGroup(model));
   }
@@ -59,163 +61,175 @@ export function buildInventory(model: ShowModel, target: Platform): Inventory {
   return { source: model.source, target, kind: model.kind, root };
 }
 
+// --- channels ---------------------------------------------------------------
+
 function channelGroup(
   id: string,
   label: string,
   channels: Channel[],
+  cap: number,
   lim: Limits,
-  isAux = false,
+  isAux: boolean,
 ): InventoryNode {
-  const cap = isAux ? 8 : lim.channels;
   return {
     id,
     label,
     detail: `${channels.length}`,
     convertible: true,
     defaultOn: true,
+    active: true,
     children: channels.map((c) => {
       const over = c.index > cap;
-      const used = channelUsed(c);
-      const node: InventoryNode = {
+      const active = channelActive(c);
+      return {
         id: `${id}.${c.index}`,
-        label: `${pad(c.index)} ${c.name || "—"}`,
+        label: c.name || "—",
         detail: c.input?.source && c.input.source !== "none" ? c.input.source : undefined,
         convertible: !over,
-        defaultOn: !over && used,
-        note: over
-          ? `Target has only ${cap} ${isAux ? "aux inputs" : "channels"} — dropped.`
-          : used
-            ? undefined
-            : "Empty / unused channel.",
+        active,
+        defaultOn: !over && active,
+        note: over ? `Target has ${cap} ${isAux ? "aux inputs" : "channels"} — dropped.` : undefined,
+        facets: {
+          colour: c.colour,
+          fader: c.fader,
+          source: c.input?.source && c.input.source !== "none" ? c.input.source : undefined,
+          muted: c.mute,
+          stereo: c.stereoLink,
+        },
         children: over
           ? undefined
           : [
-              leaf(`${id}.${c.index}.strip`, "Name, colour, fader, pan, mute", true),
-              leaf(`${id}.${c.index}.input`, "Input patch + preamp gain", true, {
-                detail: c.input?.gain != null ? `${c.input.gain} dB` : undefined,
-              }),
-              eqLeaf(`${id}.${c.index}.eq`, c.eq?.bands.length ?? 0, lim.eqBands, c.eq?.on),
-              leaf(`${id}.${c.index}.gate`, "Gate / expander", c.gate?.on ?? false, {
-                note: c.gate?.model
-                  ? `Model "${c.gate.model}" → generic gate.`
-                  : undefined,
-              }),
-              leaf(`${id}.${c.index}.comp`, "Compressor", c.comp?.on ?? false, {
-                note: c.comp?.model
-                  ? `Model "${c.comp.model}" → generic compressor.`
-                  : undefined,
-              }),
-              leaf(`${id}.${c.index}.sends`, "Bus sends", true),
+              block(`${id}.${c.index}`, "strip", true, "Name, colour, fader, pan, mute"),
+              block(`${id}.${c.index}`, "input", true, "Input patch + preamp gain",
+                c.input?.gain != null ? `${round(c.input.gain)} dB` : undefined),
+              eqBlock(`${id}.${c.index}`, c.eq?.bands.length ?? 0, lim.eqBands, c.eq?.on ?? false),
+              block(`${id}.${c.index}`, "gate", c.gate?.on ?? false, "Gate / expander",
+                c.gate?.model, c.gate?.model ? `Model "${c.gate.model}" → generic gate.` : undefined),
+              block(`${id}.${c.index}`, "comp", c.comp?.on ?? false, "Compressor",
+                c.comp?.model, c.comp?.model ? `Model "${c.comp.model}" → generic compressor.` : undefined),
+              block(`${id}.${c.index}`, "sends", sendsActive(c), "Bus sends",
+                `${c.sends.filter((s) => s.on && Number.isFinite(s.level)).length} on`),
             ],
       };
-      return node;
     }),
   };
 }
 
-function channelUsed(c: Channel): boolean {
+function channelActive(c: Channel): boolean {
   if (c.name.trim()) return true;
   if (Number.isFinite(c.fader) && c.fader > -90) return true;
   if (c.eq?.on || c.gate?.on || c.comp?.on) return true;
-  if (c.sends.some((s) => s.on && Number.isFinite(s.level))) return true;
+  if (sendsActive(c)) return true;
   return false;
 }
+function sendsActive(c: Channel): boolean {
+  return c.sends.some((s) => s.on && Number.isFinite(s.level) && s.level > -90);
+}
 
-function busGroup(
-  id: string,
-  label: string,
-  buses: { index: number; name: string }[],
-  cap: number,
-  _eqBands: number,
-): InventoryNode {
+// --- buses ------------------------------------------------------------------
+
+function busGroup(id: string, label: string, buses: Bus[], cap: number): InventoryNode {
   return {
     id,
     label,
     detail: `${buses.length}`,
     convertible: true,
     defaultOn: true,
+    active: true,
     children: buses.map((b) => {
       const over = b.index > cap;
+      const active = Boolean(b.name.trim()) || (Number.isFinite(b.fader) && b.fader > -90);
       return {
         id: `${id}.${b.index}`,
-        label: `${pad(b.index)} ${b.name || "—"}`,
+        label: b.name || "—",
         convertible: !over,
-        defaultOn: !over,
-        note: over ? `Target has only ${cap} — dropped.` : undefined,
+        active,
+        defaultOn: !over && active,
+        note: over ? `Target has ${cap} — dropped.` : undefined,
+        facets: { colour: b.colour, fader: b.fader, muted: b.mute, stereo: !b.mono },
         children: over
           ? undefined
           : [
-              leaf(`${id}.${b.index}.strip`, "Name, colour, fader, pan, mute", true),
-              leaf(`${id}.${b.index}.eq`, "EQ", true),
-              leaf(`${id}.${b.index}.comp`, "Compressor", false),
-              leaf(`${id}.${b.index}.sends`, "Sends (→ matrix / main)", true),
+              block(`${id}.${b.index}`, "strip", true, "Name, colour, fader, pan"),
+              block(`${id}.${b.index}`, "eq", b.eq?.on ?? false, "EQ"),
+              block(`${id}.${b.index}`, "comp", b.comp?.on ?? false, "Compressor", b.comp?.model),
+              block(`${id}.${b.index}`, "sends", b.sends.some((s) => s.on), "Sends → matrix / main"),
             ],
       };
     }),
   };
 }
 
-function dcaGroup(model: ShowModel, lim: Limits): InventoryNode {
+// --- simple lists (DCA, mute groups) ---------------------------------------
+
+function simpleGroup(
+  id: string,
+  label: string,
+  items: { index: number; name: string }[],
+  cap: number,
+  facetFn?: (item: never) => InventoryNode["facets"],
+): InventoryNode {
   return {
-    id: "dcas",
-    label: "DCA groups",
-    detail: `${model.dcas.length}`,
+    id,
+    label,
+    detail: `${items.length}`,
     convertible: true,
     defaultOn: true,
-    children: model.dcas.map((d) => {
-      const over = d.index > lim.dcas;
-      return leaf(`dcas.${d.index}`, `${pad(d.index)} ${d.name || "—"}`, !over, {
+    active: true,
+    children: items.map((it) => {
+      const over = it.index > cap;
+      const active = Boolean(it.name.trim());
+      return {
+        id: `${id}.${it.index}`,
+        label: it.name || "—",
         convertible: !over,
-        note: over ? `Target has only ${lim.dcas} DCAs — dropped.` : undefined,
-      });
+        active,
+        defaultOn: !over && active,
+        note: over ? `Target has ${cap} — dropped.` : undefined,
+        facets: facetFn ? facetFn(it as never) : undefined,
+      };
     }),
   };
 }
 
-function muteGroupGroup(model: ShowModel, lim: Limits): InventoryNode {
-  return {
-    id: "mutegroups",
-    label: "Mute groups",
-    detail: `${model.muteGroups.length}`,
-    convertible: true,
-    defaultOn: true,
-    children: model.muteGroups.map((g) => {
-      const over = g.index > lim.muteGroups;
-      return leaf(`mutegroups.${g.index}`, `${pad(g.index)} ${g.name}`, !over, {
-        convertible: !over,
-        note: over ? `Target has only ${lim.muteGroups} mute groups — dropped.` : undefined,
-      });
-    }),
-  };
-}
+const dcaFacets = (d: Dca): InventoryNode["facets"] => ({
+  colour: d.colour,
+  fader: d.fader,
+  muted: d.mute,
+});
 
-function fxGroup(model: ShowModel, target: Platform, lim: Limits): InventoryNode {
+// --- FX --------------------------------------------------------------------
+
+function fxGroup(fx: FxSlot[], target: Platform, cap: number): InventoryNode {
   return {
     id: "fx",
     label: "Effects",
-    detail: `${model.fx.length} in use`,
+    detail: `${fx.length} in use`,
     convertible: true,
     defaultOn: true,
-    children: model.fx.map((f) => {
-      const over = f.index > lim.fx;
+    active: true,
+    children: fx.map((f) => {
+      const over = f.index > cap;
       const noEquiv = target === "m32" && !m32SupportsKind(f.kind);
-      return leaf(
-        `fx.${f.index}`,
-        `FX ${f.index}  ${f.sourceModel}`,
-        !over && !noEquiv,
-        {
-          detail: f.kind,
-          convertible: !over,
-          note: over
-            ? `Target has only ${lim.fx} FX slots — dropped.`
-            : noEquiv
-              ? `No close M32 equivalent for "${f.sourceModel}" (${f.kind}); nearest match substituted.`
-              : `"${f.sourceModel}" → nearest ${target.toUpperCase()} type.`,
-        },
-      );
+      return {
+        id: `fx.${f.index}`,
+        label: `FX ${f.index}`,
+        detail: f.sourceModel,
+        convertible: !over,
+        active: true,
+        defaultOn: !over && !noEquiv,
+        facets: { kind: f.kind },
+        note: over
+          ? `Target has ${cap} FX slots — dropped.`
+          : noEquiv
+            ? `No close ${target.toUpperCase()} equivalent for "${f.sourceModel}" (${f.kind}).`
+            : `"${f.sourceModel}" → nearest ${target.toUpperCase()} type; parameters reset to defaults.`,
+      };
     }),
   };
 }
+
+// --- routing / config -----------------------------------------------------
 
 function routingGroup(model: ShowModel): InventoryNode {
   return {
@@ -223,14 +237,11 @@ function routingGroup(model: ShowModel): InventoryNode {
     label: "Routing",
     convertible: true,
     defaultOn: false,
+    active: model.routing.inputPatch.length > 0,
     note: "Physical I/O differs between consoles — review after import.",
     children: [
-      leaf("routing.input", "Input patch", false, {
-        detail: `${model.routing.inputPatch.length} slots`,
-      }),
-      leaf("routing.output", "Output patch", false, {
-        detail: `${model.routing.outputPatch.length} slots`,
-      }),
+      block("routing", "input", false, "Input patch", `${model.routing.inputPatch.length} slots`),
+      block("routing", "output", false, "Output patch", `${model.routing.outputPatch.length} slots`),
     ],
   };
 }
@@ -241,47 +252,56 @@ function configGroup(model: ShowModel): InventoryNode {
     label: "Console config",
     convertible: true,
     defaultOn: false,
+    active: false,
     children: [
-      leaf("config.main", "Main mode", false, { detail: model.config.mainMode }),
-      leaf("config.talkback", "Talkback", false),
-      leaf("config.osc", "Oscillator", false),
+      block("config", "main", false, "Main mode", model.config.mainMode),
+      block("config", "talkback", false, "Talkback"),
+      block("config", "osc", false, "Oscillator"),
     ],
   };
 }
 
-// --- leaf helpers ------------------------------------------------------------
+// --- helpers -------------------------------------------------------------
 
-function leaf(
-  id: string,
+function block(
+  parentId: string,
+  suffix: string,
+  active: boolean,
   label: string,
-  defaultOn: boolean,
-  opts: Partial<Pick<InventoryNode, "convertible" | "note" | "detail">> = {},
+  detail?: string,
+  note?: string,
 ): InventoryNode {
   return {
-    id,
-    label,
-    defaultOn: (opts.convertible ?? true) && defaultOn,
-    convertible: opts.convertible ?? true,
-    note: opts.note,
-    detail: opts.detail,
+    id: `${parentId}.${suffix}`,
+    label: BLOCK_LABELS[suffix] ?? label,
+    detail,
+    convertible: true,
+    active,
+    defaultOn: active,
+    note,
   };
 }
 
-function eqLeaf(
-  id: string,
+function eqBlock(
+  parentId: string,
   bandCount: number,
   targetBands: number,
-  on: boolean | undefined,
+  on: boolean,
 ): InventoryNode {
   const fold = bandCount > targetBands;
-  return leaf(id, "EQ", on ?? false, {
-    detail: `${bandCount} band`,
+  return {
+    id: `${parentId}.eq`,
+    label: "EQ",
+    detail: `${bandCount}-band`,
+    convertible: true,
+    active: on,
+    defaultOn: on,
     note: fold
-      ? `${bandCount}-band → ${targetBands}-band: shelves kept + ${targetBands - 2} most-active mids.`
+      ? `${bandCount}-band → ${targetBands}-band: shelves + ${targetBands - 2} most-active mids kept.`
       : undefined,
-  });
+  };
 }
 
-function pad(n: number): string {
-  return String(n).padStart(2, "0");
+function round(n: number): number {
+  return Math.round(n * 10) / 10;
 }
