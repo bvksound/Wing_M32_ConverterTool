@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Wing ⇄ M32 Converter — BVKsound</title>
+    <link rel="icon" href="./bvk-logo.png" />
+  </head>
+  <body>
+    <header class="site">
+      <div class="wrap bar">
+        <a class="brand" href="https://www.bvksound.be">
+          <img src="./bvk-logo.png" alt="BVK logo" width="30" height="30" />
+          <span>BVKsound</span>
+        </a>
+        <span class="tool-name">Wing&nbsp;⇄&nbsp;M32 Converter</span>
+      </div>
+    </header>
+
+    <main class="wrap" id="app">
+      <section class="intro">
+        <p class="eyebrow">Show file converter</p>
+        <h1>Move shows between Behringer&nbsp;Wing and Midas&nbsp;/&nbsp;M32</h1>
+        <p class="lead">
+          Drop a WING snapshot (<code>.snap</code>), WING channel preset
+          (<code>.chn</code>) or an M32&nbsp;/&nbsp;X32 scene (<code>.scn</code>).
+          Everything runs in your browser — the file never leaves this device.
+        </p>
+      </section>
+
+      <div id="drop" class="dropzone" tabindex="0">
+        <input type="file" id="file" accept=".scn,.snap,.chn" hidden />
+        <div class="dz-inner">
+          <strong>Drop a show file here</strong>
+          <span>or click to choose · .scn · .snap · .chn</span>
+        </div>
+      </div>
+
+      <div id="workspace" hidden></div>
+    </main>
+
+    <footer class="site">
+      <div class="wrap">
+        <p>
+          BVKsound · Professional Audio · Not affiliated with Music Tribe,
+          Behringer or Midas. Always check a converted show on the console before
+          a gig.
+        </p>
+      </div>
+    </footer>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
