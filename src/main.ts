@@ -146,6 +146,7 @@ function renderWorkspace(): void {
       <span class="pill dim" title="${escapeHtml(model.meta.firmware ?? "")}">${escapeHtml(model.meta.model ?? "")}</span>
       <span class="grow"></span>
       <div class="stat-strip" id="stats"></div>
+      <button class="btn btn-ghost" id="export-presets">Export presets ↓</button>
       <button class="btn btn-primary" id="download">Convert &amp; download .${ext}</button>
     </div>
 
@@ -170,6 +171,7 @@ function renderWorkspace(): void {
   `;
 
   must<HTMLButtonElement>("#download").addEventListener("click", download);
+  must<HTMLButtonElement>("#export-presets").addEventListener("click", exportAllChannelPresets);
   must<HTMLButtonElement>("#sel-all").addEventListener("click", () => {
     cleared.clear();
     inventory.root.forEach((n) => setSubtree(n, true));
@@ -340,18 +342,6 @@ function matrixHeader(group: InventoryNode, blocks: readonly string[]): HTMLElem
     rerender();
   });
   left.append(selAll, selNone);
-
-  if (group.id === "channels" || group.id === "auxins") {
-    const exportBtn = document.createElement("button");
-    exportBtn.className = "link-btn";
-    exportBtn.textContent = "Export presets ↓";
-    exportBtn.title =
-      "Download the selected strips as individual WING .chn presets, zipped. " +
-      "Note: WING presets don't carry a channel name (loading one changes processing, not identity) " +
-      "— that's WING's own convention, matched here.";
-    exportBtn.addEventListener("click", () => exportChannelPresets(group));
-    left.append(exportBtn);
-  }
 
   h.appendChild(left);
 
@@ -659,25 +649,37 @@ function saveBlob(filename: string, blob: Blob): void {
  * (like Examples/Wing/2_PRESETS) from a converted show, regardless of whether
  * the source was WING or M32.
  */
-function exportChannelPresets(group: InventoryNode): void {
+/**
+ * Every currently-selected input channel / aux strip, exported as individual
+ * WING .chn presets and zipped into one download — sits next to "Convert &
+ * download" since it's the other thing you can pull out of a loaded show.
+ */
+function exportAllChannelPresets(): void {
   if (!loaded) return;
+  const groups = loaded.inventory.root.filter((g) => g.id === "channels" || g.id === "auxins");
+  const entries = groups.flatMap((g) => collectPresetEntries(g));
+  if (!entries.length) {
+    window.alert("No channels selected — tick at least one strip first.");
+    return;
+  }
+  const showName = (loaded.model.meta.name || "channels").replace(/[\\/:*?"<>|]/g, "_");
+  saveBlob(`${showName} presets.zip`, makeZip(entries));
+}
+
+function collectPresetEntries(group: InventoryNode): { name: string; data: string }[] {
+  if (!loaded) return [];
   const source = group.id === "auxins" ? loaded.model.auxIns : loaded.model.channels;
+  const folder = group.id === "auxins" ? "Aux" : "Channels";
   const included = (group.children ?? []).filter((n) => {
     if (!n.convertible) return false;
     return convertibleLeaves(n).some((l) => selection.has(l.id));
   });
-  if (!included.length) {
-    window.alert("No channels selected — tick at least one strip first.");
-    return;
-  }
-  const entries = included.map((node) => {
+  return included.map((node) => {
     const index = Number(node.id.split(".").pop());
     const ch = source.find((c) => c.index === index)!;
     const safeName = (ch.name || `CH ${pad2(index)}`).replace(/[\\/:*?"<>|]/g, "_").trim();
-    return { name: `${pad2(index)}_${safeName}.chn`, data: writeWingChannelPreset(ch) };
+    return { name: `${folder}/${pad2(index)}_${safeName}.chn`, data: writeWingChannelPreset(ch) };
   });
-  const showName = (loaded.model.meta.name || "channels").replace(/[\\/:*?"<>|]/g, "_");
-  saveBlob(`${showName} presets.zip`, makeZip(entries));
 }
 
 function pad2(n: number): string {
