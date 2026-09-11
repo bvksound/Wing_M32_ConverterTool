@@ -94,6 +94,7 @@ p.lead { font-size: 15.5px; max-width: 64ch; }
   padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border-lit); color: var(--muted);
 }
 .stat-strip { display: flex; flex-wrap: wrap; gap: 6px; }
+.card-actions { display: flex; gap: 10px; flex-wrap: nowrap; }
 .stat {
   display: flex; flex-direction: column; align-items: flex-start;
   border: 1px solid var(--border); border-radius: 8px; padding: 4px 9px; background: var(--panel);

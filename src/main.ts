@@ -146,8 +146,10 @@ function renderWorkspace(): void {
       <span class="pill dim" title="${escapeHtml(model.meta.firmware ?? "")}">${escapeHtml(model.meta.model ?? "")}</span>
       <span class="grow"></span>
       <div class="stat-strip" id="stats"></div>
-      <button class="btn btn-ghost" id="export-presets">Export presets ↓</button>
-      <button class="btn btn-primary" id="download">Convert &amp; download .${ext}</button>
+      <div class="card-actions">
+        <button class="btn btn-ghost" id="export-presets">Export presets ↓</button>
+        <button class="btn btn-primary" id="download">Convert &amp; download .${ext}</button>
+      </div>
     </div>
 
     <div class="toolbar">
