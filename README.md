@@ -4,7 +4,7 @@ A browser tool that transfers mixer shows between the **Behringer WING** and the
 **Midas / Behringer M32 (X32)** platform, in both directions.
 
 Everything runs client-side — a show file dropped into the page never leaves the
-browser. `npm run build` produces a single self-contained `dist/index.html` you
+browser. `npm run build` produces a single self-contained `dist/WingM32Converter.html` you
 can open offline or host anywhere static.
 
 ## Run it in a browser
@@ -25,7 +25,7 @@ npm install
 npm run build
 ```
 
-This writes a single self-contained `dist/index.html` (no other files, ~460 kB).
+This writes a single self-contained `dist/WingM32Converter.html` (no other files, ~460 kB).
 Double-click it, or open it in any browser — it works offline and over `file://`.
 Nothing is uploaded; the show file is parsed in the page.
 
@@ -51,10 +51,11 @@ that was clamped, folded or dropped.
 - **⌫ per row** blanks that strip on the output (name/EQ/dynamics/sends reset
   to neutral) instead of leaving it selected or falling back to the target
   template's values.
-- **Export presets ↓** on the Channels/Aux header downloads the selected
-  strips as individual WING `.chn` presets, zipped — handy for rebuilding a
-  preset library (like `Examples/Wing/2_PRESETS`) from a converted show,
-  whether the source was WING or M32. Like every preset WING-Edit itself
+- **Export presets ↓** next to Convert & download zips every selected
+  channel/aux strip into individual WING `.chn` presets — handy for
+  rebuilding a preset library (like `Examples/Wing/2_PRESETS`) from a
+  converted show, whether the source was WING or M32. Like every preset
+  WING-Edit itself
   exports, the channel name is *not* stored in the preset (only in its
   library label) — recalling a preset changes processing, not the channel's
   identity, so loading one won't rename the channel. That's WING's own
