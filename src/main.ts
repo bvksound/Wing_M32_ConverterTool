@@ -2,7 +2,8 @@ import "./theme.css";
 import logoUrl from "./assets/bvk-logo.png";
 import { convert, loadShowFile, type LoadedFile } from "./convert/convert";
 import { blankM32Scene } from "./m32/m32Writer";
-import { blankWingSnapshot } from "./wing/wingWriter";
+import { blankWingSnapshot, writeWingChannelPreset } from "./wing/wingWriter";
+import { makeZip } from "./util/zip";
 import {
   BLOCK_LABELS,
   BUS_BLOCKS,
@@ -314,6 +315,36 @@ function matrixHeader(group: InventoryNode, blocks: readonly string[]): HTMLElem
   const t = document.createElement("h2");
   t.textContent = group.label;
   left.append(t);
+
+  const spacer = document.createElement("span");
+  spacer.className = "grow";
+  left.append(spacer);
+
+  const selAll = document.createElement("button");
+  selAll.className = "link-btn";
+  selAll.textContent = "Select all";
+  selAll.addEventListener("click", () => {
+    setSubtree(group, true);
+    rerender();
+  });
+  const selNone = document.createElement("button");
+  selNone.className = "link-btn";
+  selNone.textContent = "Deselect all";
+  selNone.addEventListener("click", () => {
+    setSubtree(group, false);
+    rerender();
+  });
+  left.append(selAll, selNone);
+
+  if (group.id === "channels" || group.id === "auxins") {
+    const exportBtn = document.createElement("button");
+    exportBtn.className = "link-btn";
+    exportBtn.textContent = "Export presets ↓";
+    exportBtn.title = "Download the selected strips as individual WING .chn presets, zipped";
+    exportBtn.addEventListener("click", () => exportChannelPresets(group));
+    left.append(exportBtn);
+  }
+
   h.appendChild(left);
 
   const cols = document.createElement("div");
@@ -597,12 +628,47 @@ function download(): void {
 }
 
 function saveText(filename: string, text: string, mime: string): void {
-  const url = URL.createObjectURL(new Blob([text], { type: mime }));
+  saveBlob(filename, new Blob([text], { type: mime }));
+}
+
+function saveBlob(filename: string, blob: Blob): void {
+  const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+/**
+ * Download every currently-selected strip in a channel/aux section as its own
+ * WING .chn preset, zipped into one file — e.g. to rebuild a preset library
+ * (like Examples/Wing/2_PRESETS) from a converted show, regardless of whether
+ * the source was WING or M32.
+ */
+function exportChannelPresets(group: InventoryNode): void {
+  if (!loaded) return;
+  const source = group.id === "auxins" ? loaded.model.auxIns : loaded.model.channels;
+  const included = (group.children ?? []).filter((n) => {
+    if (!n.convertible) return false;
+    return convertibleLeaves(n).some((l) => selection.has(l.id));
+  });
+  if (!included.length) {
+    window.alert("No channels selected — tick at least one strip first.");
+    return;
+  }
+  const entries = included.map((node) => {
+    const index = Number(node.id.split(".").pop());
+    const ch = source.find((c) => c.index === index)!;
+    const safeName = (ch.name || `CH ${pad2(index)}`).replace(/[\\/:*?"<>|]/g, "_").trim();
+    return { name: `${pad2(index)}_${safeName}.chn`, data: writeWingChannelPreset(ch) };
+  });
+  const showName = (loaded.model.meta.name || "channels").replace(/[\\/:*?"<>|]/g, "_");
+  saveBlob(`${showName} presets.zip`, makeZip(entries));
+}
+
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
 }
 
 // --- utils --------------------------------------------------------------

@@ -41,9 +41,22 @@ Drop a file:
 | `.chn`  | WING channel preset | M32 channel strip `.scn` |
 | `.scn`  | M32 / X32 scene | WING snapshot `.snap` |
 
-Then tick the processing blocks you want in the **What to convert** tree
-(everything that maps cleanly is pre-ticked) and hit **Convert & download**. The
-**Conversion report** lists everything that was clamped, folded or dropped.
+Each section (Channels, Buses, FX, …) is a matrix: one row per strip, one cell
+per processing block (Strip / In / EQ / Gate / Dyn / Sends). Click a cell to
+toggle it, a column header to toggle that block for the whole section, or use
+**Select all / Deselect all** per section. Everything that maps cleanly is
+pre-ticked. Hit **Convert & download**; the **Report** panel lists everything
+that was clamped, folded or dropped.
+
+- **⌫ per row** blanks that strip on the output (name/EQ/dynamics/sends reset
+  to neutral) instead of leaving it selected or falling back to the target
+  template's values.
+- **Export presets ↓** on the Channels/Aux header downloads the selected
+  strips as individual WING `.chn` presets, zipped — handy for rebuilding a
+  preset library (like `Examples/Wing/2_PRESETS`) from a converted show,
+  whether the source was WING or M32.
+- **Blank templates** on the landing page hand you a fully-cleared `.scn` /
+  `.snap` with no file loaded at all.
 
 ## How it works
 

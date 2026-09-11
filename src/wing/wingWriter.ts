@@ -112,6 +112,26 @@ function writeWingPreset(
 }
 
 /**
+ * A standalone WING channel preset (`.chn`) built from one channel of the
+ * neutral model — works whether that channel came from a WING snapshot or an
+ * M32 scene. Used by "export channel presets": one file per channel, unlike
+ * `writeWing`/`writeWingPreset` this always includes the full strip (name,
+ * EQ, gate, compressor, sends), independent of the scene-conversion selection.
+ */
+export function writeWingChannelPreset(ch: Channel): string {
+  const doc = WingDoc.parse(wingChnTemplate);
+  const b = "ch_data";
+  doc.set("source_channel", ch.index);
+  doc.set("info_text", ch.name || `Channel ${ch.index}`);
+  writeStrip(doc, b, ch);
+  if (ch.eq) writeChannelEq(doc, b, ch.eq);
+  if (ch.gate) writeGate(doc, `${b}.gate`, ch.gate);
+  if (ch.comp) writeComp(doc, `${b}.dyn`, ch.comp);
+  writeSends(doc, b, ch.sends, 16);
+  return doc.serialize();
+}
+
+/**
  * A WING snapshot that resets every mix strip to neutral: names/colours
  * cleared, every fader (channels, aux, buses, matrices, mains, DCAs) off, all
  * EQ / gate / dynamics / pre-EQ bypassed, filters off, every send off, all

@@ -150,8 +150,8 @@ input[type="checkbox"] { accent-color: var(--teal); width: 15px; height: 15px; c
 
 /* ---- matrix ---- */
 .matrix-header { align-items: stretch; padding: 0; flex-direction: column; }
-.mh-left { display: flex; align-items: center; gap: 10px; padding: 12px 16px; }
-.mh-left h2 { font-size: 15px; }
+.mh-left { display: flex; align-items: center; gap: 10px; padding: 12px 16px; flex-wrap: wrap; }
+.mh-left h2 { font-size: 15px; white-space: nowrap; }
 .mh-cols { display: grid; grid-template-columns: repeat(var(--nblocks, 6), minmax(0,1fr)); gap: 4px; padding: 0 12px 10px 105px; }
 .col-toggle {
   font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.04em; text-transform: uppercase;

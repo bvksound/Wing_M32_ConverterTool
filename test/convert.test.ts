@@ -5,7 +5,7 @@ import { loadShowFile, convert } from "../src/convert/convert";
 import { selectAllDefault } from "../src/convert/types";
 import { ScnDocument } from "../src/m32/scnDocument";
 import { blankM32Scene } from "../src/m32/m32Writer";
-import { blankWingSnapshot } from "../src/wing/wingWriter";
+import { blankWingSnapshot, writeWingChannelPreset } from "../src/wing/wingWriter";
 import { decodeLevel } from "../src/m32/tokens";
 
 const ex = (rel: string) =>
@@ -143,6 +143,28 @@ describe("blankM32Scene", () => {
     expect(doc.get("/ch/01/config")![3]).toBe("1");
     expect(doc.get("/ch/32/config")![3]).toBe("32");
     expect(doc.has("/config/routing")).toBe(true);
+  });
+});
+
+describe("writeWingChannelPreset (per-channel export)", () => {
+  it("builds a standalone .chn from an M32-sourced channel", () => {
+    const l = loadShowFile("M32R Backup.scn", M32);
+    const kick = l.model.channels[0]!; // ch 1, "Kick"
+    const text = writeWingChannelPreset(kick);
+    const json = JSON.parse(text);
+    expect(json.type).toMatch(/^chpreset/);
+    expect(json.source_channel).toBe(1);
+    expect(json.info_text).toBe("Kick");
+    expect(json.ch_data.name).toBe("Kick");
+    expect(json.ch_data.eq).toBeDefined();
+  });
+
+  it("builds one from a WING-sourced channel too", () => {
+    const l = loadShowFile("BVBA Vandamme.snap", WING_SNAP);
+    const ch = l.model.channels[7]!; // ch 8, Contrabas
+    const json = JSON.parse(writeWingChannelPreset(ch));
+    expect(json.info_text).toBe(ch.name);
+    expect(json.ch_data.send["1"]).toBeDefined();
   });
 });
 
