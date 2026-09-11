@@ -320,16 +320,21 @@ function matrixHeader(group: InventoryNode, blocks: readonly string[]): HTMLElem
   spacer.className = "grow";
   left.append(spacer);
 
+  // Whole-row selection — ticks/unticks every strip in this section entirely
+  // (all of its blocks), distinct from the per-block toggles below.
+  const rowNoun = group.label.toLowerCase();
   const selAll = document.createElement("button");
   selAll.className = "link-btn";
-  selAll.textContent = "Select all";
+  selAll.textContent = `Select all ${rowNoun}`;
+  selAll.title = `Tick every strip in ${rowNoun} completely`;
   selAll.addEventListener("click", () => {
     setSubtree(group, true);
     rerender();
   });
   const selNone = document.createElement("button");
   selNone.className = "link-btn";
-  selNone.textContent = "Deselect all";
+  selNone.textContent = `Deselect all ${rowNoun}`;
+  selNone.title = `Untick every strip in ${rowNoun} completely`;
   selNone.addEventListener("click", () => {
     setSubtree(group, false);
     rerender();
@@ -346,6 +351,11 @@ function matrixHeader(group: InventoryNode, blocks: readonly string[]): HTMLElem
   }
 
   h.appendChild(left);
+
+  const colsLabel = document.createElement("div");
+  colsLabel.className = "mh-cols-label";
+  colsLabel.textContent = "Toggle one option for every row:";
+  h.appendChild(colsLabel);
 
   const cols = document.createElement("div");
   cols.className = "mh-cols";
