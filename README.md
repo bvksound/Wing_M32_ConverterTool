@@ -54,7 +54,11 @@ that was clamped, folded or dropped.
 - **Export presets ↓** on the Channels/Aux header downloads the selected
   strips as individual WING `.chn` presets, zipped — handy for rebuilding a
   preset library (like `Examples/Wing/2_PRESETS`) from a converted show,
-  whether the source was WING or M32.
+  whether the source was WING or M32. Like every preset WING-Edit itself
+  exports, the channel name is *not* stored in the preset (only in its
+  library label) — recalling a preset changes processing, not the channel's
+  identity, so loading one won't rename the channel. That's WING's own
+  behaviour, not a converter bug.
 - **Blank templates** on the landing page hand you a fully-cleared `.scn` /
   `.snap` with no file loaded at all.
 

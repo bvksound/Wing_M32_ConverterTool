@@ -115,8 +115,14 @@ function writeWingPreset(
  * A standalone WING channel preset (`.chn`) built from one channel of the
  * neutral model — works whether that channel came from a WING snapshot or an
  * M32 scene. Used by "export channel presets": one file per channel, unlike
- * `writeWing`/`writeWingPreset` this always includes the full strip (name,
- * EQ, gate, compressor, sends), independent of the scene-conversion selection.
+ * `writeWing`/`writeWingPreset` this always includes the full strip (EQ, gate,
+ * compressor, sends), independent of the scene-conversion selection.
+ *
+ * WING itself never stores a channel name inside a preset — every preset
+ * WING-Edit exports has `ch_data.name` blank; only the preset's own
+ * `info_text` (the library label) carries a name, and *that* isn't applied to
+ * the channel on recall either. Loading a preset changes processing, not the
+ * channel's identity — so this matches that and leaves `ch_data.name` empty.
  */
 export function writeWingChannelPreset(ch: Channel): string {
   const doc = WingDoc.parse(wingChnTemplate);
@@ -124,6 +130,7 @@ export function writeWingChannelPreset(ch: Channel): string {
   doc.set("source_channel", ch.index);
   doc.set("info_text", ch.name || `Channel ${ch.index}`);
   writeStrip(doc, b, ch);
+  doc.set(`${b}.name`, ""); // presets don't carry the channel name — see above
   if (ch.eq) writeChannelEq(doc, b, ch.eq);
   if (ch.gate) writeGate(doc, `${b}.gate`, ch.gate);
   if (ch.comp) writeComp(doc, `${b}.dyn`, ch.comp);

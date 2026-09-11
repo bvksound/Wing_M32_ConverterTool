@@ -345,7 +345,10 @@ function matrixHeader(group: InventoryNode, blocks: readonly string[]): HTMLElem
     const exportBtn = document.createElement("button");
     exportBtn.className = "link-btn";
     exportBtn.textContent = "Export presets ↓";
-    exportBtn.title = "Download the selected strips as individual WING .chn presets, zipped";
+    exportBtn.title =
+      "Download the selected strips as individual WING .chn presets, zipped. " +
+      "Note: WING presets don't carry a channel name (loading one changes processing, not identity) " +
+      "— that's WING's own convention, matched here.";
     exportBtn.addEventListener("click", () => exportChannelPresets(group));
     left.append(exportBtn);
   }

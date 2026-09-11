@@ -155,7 +155,6 @@ describe("writeWingChannelPreset (per-channel export)", () => {
     expect(json.type).toMatch(/^chpreset/);
     expect(json.source_channel).toBe(1);
     expect(json.info_text).toBe("Kick");
-    expect(json.ch_data.name).toBe("Kick");
     expect(json.ch_data.eq).toBeDefined();
   });
 
@@ -165,6 +164,30 @@ describe("writeWingChannelPreset (per-channel export)", () => {
     const json = JSON.parse(writeWingChannelPreset(ch));
     expect(json.info_text).toBe(ch.name);
     expect(json.ch_data.send["1"]).toBeDefined();
+  });
+
+  it("leaves ch_data.name blank, like every real WING-exported preset does", () => {
+    // Confirmed against Examples/Wing/2_PRESETS/*.chn: info_text carries the
+    // label, ch_data.name is always "". WING doesn't rename the channel when
+    // a preset is recalled, so a generated preset shouldn't claim it does.
+    const l = loadShowFile("M32R Backup.scn", M32);
+    const kick = l.model.channels[0]!;
+    const json = JSON.parse(writeWingChannelPreset(kick));
+    expect(json.ch_data.name).toBe("");
+    expect(json.info_text).toBe("Kick");
+    // but the rest of the strip (colour, fader, EQ, ...) still comes through
+    expect(json.ch_data.col).toBeGreaterThan(0);
+  });
+
+  it("matches ch_data.name being blank across the real example presets", () => {
+    for (const f of [
+      "2_PRESETS/1_VOX SAM.chn",
+      "2_PRESETS/8_CONTRABAS.chn",
+    ]) {
+      const json = JSON.parse(ex(`Wing/${f}`));
+      expect(json.ch_data.name).toBe("");
+      expect(json.info_text.length).toBeGreaterThan(0);
+    }
   });
 });
 
