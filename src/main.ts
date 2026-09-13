@@ -139,20 +139,34 @@ function renderWorkspace(): void {
   const { source, target, model, inventory } = loaded;
   const ext = target === "m32" ? "scn" : model.kind === "channel-preset" ? "chn" : "snap";
 
+  const modelPill = model.meta.model
+    ? `<span class="pill dim" title="${escapeHtml(model.meta.firmware ?? "")}">${escapeHtml(model.meta.model)}</span>`
+    : "";
+
   workspace.innerHTML = `
     <div class="summary-card">
-      <div class="flow"><span>${source.toUpperCase()}</span><span class="arrow">→</span><span>${target.toUpperCase()}</span></div>
-      <span class="pill">${escapeHtml(model.meta.name || loaded.filename)}</span>
-      <span class="pill dim" title="${escapeHtml(model.meta.firmware ?? "")}">${escapeHtml(model.meta.model ?? "")}</span>
-      <span class="grow"></span>
-      <div class="stat-strip" id="stats"></div>
-      <div class="card-actions">
-        <button class="btn btn-ghost" id="export-presets">Export presets ↓</button>
-        <button class="btn btn-primary" id="download">Convert &amp; download .${ext}</button>
+      <div class="sc-row">
+        <div class="flow"><span>${source.toUpperCase()}</span><span class="arrow">→</span><span>${target.toUpperCase()}</span></div>
+        <span class="pill">${escapeHtml(model.meta.name || loaded.filename)}</span>
+        ${modelPill}
+      </div>
+
+      <div class="sc-row">
+        <span class="sc-label">Overview</span>
+        <div class="stat-strip" id="stats"></div>
+      </div>
+
+      <div class="sc-row">
+        <span class="sc-label">Download</span>
+        <div class="card-actions">
+          <button class="btn btn-ghost dl-btn" id="export-presets">↓ Export presets <code>.zip</code></button>
+          <button class="btn btn-primary dl-btn" id="download">↓ Convert &amp; download <code>.${ext}</code></button>
+        </div>
       </div>
     </div>
 
     <div class="toolbar">
+      <span class="sc-label">Sections</span>
       <div class="section-nav" id="nav"></div>
       <span class="grow"></span>
       <span class="tool-hint">Select what transfers:</span>
