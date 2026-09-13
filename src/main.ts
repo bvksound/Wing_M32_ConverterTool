@@ -159,7 +159,7 @@ function renderWorkspace(): void {
       <div class="sc-row">
         <span class="sc-label">Download</span>
         <div class="card-actions">
-          <button class="btn btn-ghost dl-btn" id="export-presets">↓ Export presets <code>.zip</code></button>
+          <button class="btn btn-primary dl-btn" id="export-presets">↓ Export presets <code>.zip</code></button>
           <button class="btn btn-primary dl-btn" id="download">↓ Convert &amp; download <code>.${ext}</code></button>
         </div>
       </div>
